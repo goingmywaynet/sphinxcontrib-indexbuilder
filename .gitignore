@@ -1,0 +1,6 @@
+.DS_Store
+.ipynb_checkpoints/*
+.specSheet.rst.swp
+.specSheet.rst.un~ 
+*~
+pipFiles/*
