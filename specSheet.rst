@@ -8,6 +8,8 @@ AutoBuildSphinxIndexScript2
 
 - SearchPath に対してフォルダとファイル名の走査を行う
 
+  
+
 - KeyFileName があるフォルダパス( KeyFilePath )を抽出
 
   * KeyFilePath 配列に以下の2種類の情報を付加
