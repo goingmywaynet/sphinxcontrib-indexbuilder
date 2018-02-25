@@ -1,6 +1,20 @@
+# Mac
 .DS_Store
+
+# jupyter notebook
 .ipynb_checkpoints/*
 .specSheet.rst.swp
 .specSheet.rst.un~ 
+
+# pyenv and etc..
 *~
 pipFiles/*
+
+# Compiled python modules.
+*.pyc
+
+# Setuptools distribution folder.
+/dist/
+
+# Python egg metadata, regenerated from source files by setuptools.
+/*.egg-info
