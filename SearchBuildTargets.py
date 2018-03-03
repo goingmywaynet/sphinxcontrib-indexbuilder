@@ -1,52 +1,61 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 # coding: -*- utf-8 -*-
 
 
-# In[2]:
+# In[ ]:
 
 
-#
+"""SearchBuildTargets.py
+
+Overview:
+  指定ディレクトリを走査し、index.rst と ディレクトリ名.rst を生成するスクリプトです。
+  
+  各ディレクトリに指定のファイル名 (000_IndexFile.txtなど)をターゲットファイル名として、
+  これの存在を検索します。
+  ターゲットファイル名が存在する場合は、ターゲットファイルを当該ファイルのカレントディレクトリ名
+  で rename し、 foldername.rst として保存します。
+  また、生成した各 .rst を集約した index.rst も生成します。
+
+Usage:
+  SearchBuildTargets SEARCH_FROM 
+                     [-o <path>     | --saveto=<path>]
+                     [-t <filename> | --targetname=<filename>]
+                     [-d <number>   | --headingdepth=<number>]
+                     [-l <text>     | --linktext=<text>]           
+  SearchBuildTargets [-h] [--help]
+
+Options:
+  SEARCH_FROM                   : 検索対象ディレクトリ ex. './search' or \\\\path\\to\\search
+  -o, --saveto=<path>           : 処理結果の出力先 ex. './tmp' or \\\\save\\to\\ [default: .] *save to current directory
+  -t, --targetname=<filename>   : ターゲットファイル名   [default: keyfile.txt]
+  -d, --headingdepth=<number>   : 見出しとして使う階層数 [default: 1]
+  -l, --linktext=<text>         : rstファイル末尾に付加する検索されたフォルダへのリンク名。定義ない場合は作成しない。 [default: none]
+  -h, --help                    : show this help message and exit
+
+"""
 
 
-# In[3]:
+# In[ ]:
 
 
 import os.path                      # OS処理
 from chardet.universaldetector import UniversalDetector # 文字エンコード自動判定
 from collections import OrderedDict # 順序付き辞書(dict)
+from docopt import docopt           # コマンド処理時の引数の定義と解釈
 
 
-# In[4]:
+# In[ ]:
 
 
-# 定数
-HEADLINE_DEPTH = 1               # index.rst でタイトル表示する階層数
-TARGET_FILE_NAME = 'keyfile.txt' # 探索するファイル名
-TARGET_PATH  = './test'          # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
-SAVE_PATH = './tmp'              # 保存先パス
-TARGET_LINK_NAME = 'Contents Folder' # .rst ファイル末尾に追記する元ファイルへのリンク名
+MYVERSION = '0.1 20180303'  # このScriptのVersion
 
 
-# In[5]:
-
-
-# Windows のセパレータ'\\'への対応として、セパレータが '/' ではない場合は、 '/' を os.sep (OSのデフォルトセパレータ) に置き換える
-if os.sep != '/':
-    print('re')
-    root_path = TARGET_PATH.replace('/', os.sep)
-    save_path = SAVE_PATH.replace('/',os.sep)
-else:
-    root_path = TARGET_PATH
-    save_path = SAVE_PATH
-        
-
-
-# In[6]:
+# In[ ]:
 
 
 # 指定のファイル名がリストに存在するかの判定
@@ -56,7 +65,7 @@ def isContain(filelist, keywoard):
             return True
 
 
-# In[7]:
+# In[ ]:
 
 
 def returnHeading(title,depth=1):       # rst 見出し生成
@@ -72,33 +81,7 @@ def returnHeading(title,depth=1):       # rst 見出し生成
     #print(len(title.encode("utf8")))
 
 
-# In[8]:
-
-
-# 指定した path を巡回して、target_path_list を作る
-
-def walk_path_to_target_path_list(search_root_path, target_file_name):
-
-    #target_dict = OrderedDict() # 順序付き辞書(dict)
-    _target_path_list = [] # 辞書入れリスト
-
-    for _root, _dirs, _files in os.walk(search_root_path): # 相対path, サブディレクトリ, 内含ファイルリスト を走査
-
-        #print( root,dirs,files) # debug
-
-        if (isContain(_files, target_file_name)): # 指定するファイル名を含むディレクトリの場合は以下を処理
-            _drive, _path = os.path.splitdrive(_root) # ネットワークドライブ名とパス名を分離         
-            _target_dict = {'drive': _drive,                                 # windows 共有ディレクトリのドライブ名
-                           'path': _path,                                   # target file を含まない path
-                           'full_path': os.path.join(_path, target_file_name),   # target file を含む path
-                           'name': os.path.basename(_path),                 # 最終ディレクトリ名を生成対象ファイル名に
-                           'depth': _path.count(os.sep)}                    # 階層の深さを
-            _target_path_list.append(_target_dict)
-
-    return sorted(_target_path_list,key=lambda my_dict: my_dict['path'])
-
-
-# In[9]:
+# In[ ]:
 
 
 # index.rst ファイルの中身を作る
@@ -129,7 +112,7 @@ def create_index_file(target_path_list, headline_depth):
             return_.append(os.linesep)
 
         else:
-            print(target['name'])                         # カウンタが headline_depth 範囲外なら記事ファイルとする
+            #print(target['name'])                         # カウンタが headline_depth 範囲外なら記事ファイルとする
             return_.append(target['name'])
             return_.append(os.linesep)
 
@@ -138,24 +121,33 @@ def create_index_file(target_path_list, headline_depth):
     return return_
 
 
-# In[10]:
+# In[ ]:
 
 
-# ディレクトリを走査して、対象ファイルのリストを生成する。
-target_path_list = walk_path_to_target_path_list(root_path, TARGET_FILE_NAME)
+# 指定した path を巡回して、target_path_list を作る
+
+def walk_path_to_target_path_list(search_root_path, target_file_name):
+
+    #target_dict = OrderedDict() # 順序付き辞書(dict)
+    _target_path_list = [] # 辞書入れリスト
+
+    for _root, _dirs, _files in os.walk(search_root_path): # 相対path, サブディレクトリ, 内含ファイルリスト を走査
+
+        #print( root,dirs,files) # debug
+
+        if (isContain(_files, target_file_name)): # 指定するファイル名を含むディレクトリの場合は以下を処理
+            _drive, _path = os.path.splitdrive(_root) # ネットワークドライブ名とパス名を分離         
+            _target_dict = {'drive': _drive,                                 # windows 共有ディレクトリのドライブ名
+                           'path': _path,                                   # target file を含まない path
+                           'full_path': os.path.join(_path, target_file_name),   # target file を含む path
+                           'name': os.path.basename(_path),                 # 最終ディレクトリ名を生成対象ファイル名に
+                           'depth': _path.count(os.sep)}                    # 階層の深さを
+            _target_path_list.append(_target_dict)
+
+    return sorted(_target_path_list,key=lambda my_dict: my_dict['path'])
 
 
-# In[11]:
-
-
-# index.rst ファイルを書き出す
-index_txt = create_index_file(target_path_list, HEADLINE_DEPTH)
-file = open(os.path.join(save_path,"index.rst"), mode='w', encoding='utf-8')
-file.write("".join(index_txt))
-file.close()
-
-
-# In[12]:
+# In[ ]:
 
 
 # ファイルの文字エンコード判定
@@ -181,40 +173,80 @@ def detect_file_encode(file):
     #print(encoding_info)
 
 
-# In[14]:
+# # 定数
+# HEADLINE_DEPTH = 1               # index.rst でタイトル表示する階層数
+# TARGET_FILE_NAME = 'keyfile.txt' # 探索するファイル名
+# TARGET_PATH  = r'./test'          # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
+# #TARGET_PATH  = r'\\win7\Public\Documents\test' # Windows SMB
+# SAVE_PATH = r'./tmp'              # 保存先パス
+# #SAVE_PATH = r'\\win7\Public\Documents\tmp' # Windows SMB
+# TARGET_LINK_NAME = 'Contents Folder' # .rst ファイル末尾に追記する元ファイルへのリンク名
+
+# In[ ]:
 
 
-# ターゲットファイルを rst ファイル化
-for target in target_path_list:
-    if os.path.exists(target['full_path']): 
+# MAIN 処理
+if __name__ == '__main__':
+    arguments = docopt(__doc__, version=MYVERSION)
+    
+    # 引数の整理
+    HEADLINE_DEPTH   = int(arguments['--headingdepth']) # index.rst でタイトル表示する階層数
+    TARGET_FILE_NAME = arguments['--targetname']   # 探索するファイル名
+    TARGET_PATH      = arguments['SEARCH_FROM']    # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
+    SAVE_PATH        = arguments['--saveto']       # 保存先パス
+    TARGET_LINK_NAME = arguments['--linktext']     # .rst ファイル末尾に追記する元ファイルへのリンク名 'none'なら作らない
+    #print(arguments)
+    
+    # 検索先定義がない場合は終了する
+    if TARGET_PATH == None or not os.path.exists(TARGET_PATH):
+        print('検索先が見つからなかった為、終了します。')
+        import sys
+        sys.exit(1) 
         
-        #target_path_list の各ファイルを開いていく
-        _encode = detect_file_encode(target['full_path'])["encoding"] # ファイルの文字コードを自動判定する
-        if _encode == "SHIFT_JIS": _encode = "cp932"                  # 自動判定で SHIFT_JIS になる場合は予防的に上位互換の cp932 として扱う
-        _file = open(target['full_path'],mode='r',encoding=_encode)
-        _lines = _file.readlines()
-        _file.close()
-        
-        #末尾にリンクを追記する
-        _lines.append(os.linesep)
-        _lines.append(":smblink:`{LINK_NAME} <{LINK_PATH}>`".format(LINK_NAME=TARGET_LINK_NAME, LINK_PATH=target['path']))
-        _lines.append(os.linesep)
-        
-        #print(os.path.join(save_path,str(target['name']) + ".rst"))
-        save_file = open(os.path.join(save_path,str(target['name']) + ".rst"), mode='w', encoding='utf-8')
-        for _line in _lines:
-            save_file.write(_line)
-            #print(_line)        
-        save_file.close()
+    # Windows のセパレータ'\\'への対応として、セパレータが '/' ではない場合は、 '/' を os.sep (OSのデフォルトセパレータ) に置き換える
+    if os.sep != '/':
+        root_path = TARGET_PATH.replace('/', os.sep)
+        save_path = SAVE_PATH.replace('/',os.sep)
+        print('Windows用に / から ' + os.sep +  ' へセパレータの置き換え実施しました。')
+    else:
+        root_path = TARGET_PATH
+        save_path = SAVE_PATH
 
+    
+    # ディレクトリを走査して、対象ファイルのリストを生成する。
+    target_path_list = walk_path_to_target_path_list(root_path, TARGET_FILE_NAME)
 
-# これらの関数の多くは Windows の一律命名規則 (UNCパス名) を正しくサポートしていません。 splitunc() と ismount() は正しく UNC パス名を操作できます。
-# 
-# os.path.splitunc(path)(原文)
-# パス名 path をペア (unc, rest) に分割します。ここで unc は (r'\\host\mount' のような) UNC マウントポイント、そして rest は (r'\path\file.ext' のような) パスの残りの部分です。ドライブ名を含むパスでは常に unc が空文字列になります。
-# 
-# 利用可能: Windows
-# 
-# os.path.splitunc(path)
-# Deprecated since version 3.1: Use splitdrive instead.
-# 
+    # index.rst ファイルを書き出す
+    index_txt = create_index_file(target_path_list, HEADLINE_DEPTH)
+    file = open(os.path.join(save_path,"index.rst"), mode='w', encoding='utf-8')
+    file.write("".join(index_txt))
+    file.close()
+
+    # ターゲットファイルを rst ファイル化
+    for target in target_path_list:
+
+        _full_path = os.path.join(target['drive'], target['full_path'])    # windows network drive path
+
+        if os.path.exists(_full_path): 
+            #target_path_list の各ファイルを開いていく
+            _encode = detect_file_encode(_full_path)["encoding"] # ファイルの文字コードを自動判定する
+            if _encode == "SHIFT_JIS": _encode = "cp932"                  # 自動判定で SHIFT_JIS になる場合は予防的に上位互換の cp932 として扱う
+            _file = open(_full_path,mode='r',encoding=_encode)
+            _lines = _file.readlines()
+            _file.close()
+
+            if TARGET_LINK_NAME != 'none':
+                #末尾にリンクを追記する
+                _lines.append(os.linesep)
+                _lines.append(":smblink:`{LINK_NAME} <{LINK_PATH}>`".format(LINK_NAME=TARGET_LINK_NAME, 
+                                                                            LINK_PATH=os.path.join(target['drive'],
+                                                                                                   target['path'])))
+            _lines.append(os.linesep)
+
+            #print(os.path.join(save_path,str(target['name']) + ".rst"))
+            save_file = open(os.path.join(save_path,str(target['name']) + ".rst"), mode='w', encoding='utf-8')
+            for _line in _lines:
+                save_file.write(_line)
+                #print(_line)        
+            save_file.close()
+
