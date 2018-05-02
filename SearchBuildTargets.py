@@ -87,8 +87,12 @@ def returnHeading(title,depth=1):       # rst 見出し生成
 # index.rst ファイルの中身を作る
 def create_index_file(target_path_list, headline_depth):
     return_ = []                                          # return のためのリスト
-    before_depth  = 65535
-    depth_count   = 1
+    
+    before_depth  = 65535                                 # 階層の深さを比較するための初期値
+                                                          #  （初期は必ずタイトルなので、これ以上にない深さにしておく）
+    before_target = target_path_list[0]                   # あとで評価の枝が移動したことを検知するために1件目を
+                                                          # 比較対象として持っておく
+    depth_count   = 1                                     # 評価階層の深さの初期値
 
     for target in target_path_list:                       # target_path_list を順序良く評価していく
     #    print(target)
@@ -96,27 +100,45 @@ def create_index_file(target_path_list, headline_depth):
     #    print("current_depth=",target['depth'])
     #    print("count        =",depth_count)
     #    print("end_depth    =",end_depth)
+    
+    
+        # 現在位置比較のための情報を作る
+        before_path  = before_target['path'].split(os.sep)          # 直前の評価位置
+        current_path = target['path'].split(os.sep)                 # 現在の評価位置
+        comp_depth = min(target['depth'], before_target['depth'])   # 評価位置の階層が変わった場合は浅い方で比較        
+        #print(before_path , current_path)
+        #print(before_path[:comp_depth])
+        #print(current_path[:comp_depth])
+        
 
-        if target['depth'] < before_depth :               # 評価の途中で階層が浅くなった場合は評価をリセット
+        if target['depth'] < before_depth :               # 評価の途中で現在位置が前回より階層が浅くなった場合は評価をリセット
+                                                          # 階層をリセットすると、この評価対象は Headline化階層より浅くなり
+                                                          # Headline 化される
+            depth_count = 1                               # Headline 化階層カウンタ = 1 = 必ずHeadline化
+            #print("reset")
+
+        if before_path[:comp_depth] != current_path[:comp_depth] : # 評価パスが違う枝に移動した場合リセット
             depth_count = 1                               # Headline 化階層カウンタ
-
-        if target['depth'] > before_depth :               # 評価の途中で階層が深くなった場合はカウンタ++
+            #print("reset")
+     
+        elif target['depth'] > before_depth :             # 評価の途中で階層が深くなった場合はカウンタ++
             depth_count = depth_count + 1
+            
 
         if depth_count <= headline_depth :                # カウンタが headline_depth 範囲内の場合は、見出し化する
-            #print(depth_count)
-            #print(os.linesep)
-            #print(returnHeading(target['name'],depth_count))
             return_.append(os.linesep)
             return_.append(returnHeading(target['name'],depth_count))
             return_.append(os.linesep)
+            #print(depth_count)
+            #print(returnHeading(target['name'],depth_count))
 
-        else:
-            #print(target['name'])                         # カウンタが headline_depth 範囲外なら記事ファイルとする
+        else:                                             # カウンタが headline_depth 範囲外なら記事ファイルとする
             return_.append(target['name'])
             return_.append(os.linesep)
+            #print(target['name'])
 
         before_depth = target['depth']                # 直前の深さを保持
+        before_target = target                        # 直前の対象を保持
 
     return return_
 
