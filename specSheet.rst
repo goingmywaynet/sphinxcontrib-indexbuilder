@@ -8,37 +8,62 @@ AutoBuildSphinxIndexScript2
 
 - SearchPath に対してフォルダとファイル名の走査を行う
 
-  
+- TargetFileName があるフォルダパスを抽出 (target_path_list)
 
-- KeyFileName があるフォルダパス( KeyFilePath )を抽出
+- target_path_list から .rst ファイル ( KeyFile )を生成する
 
-  * KeyFilePath 配列に以下の2種類の情報を付加
+  * TargetFileName の文字コードを SJIS -> UTF8
 
-    * KeyFilePathまでの階層深さ KeyDepth
-
-    * KeyFilePath のあるカレントフォルダ名 KeyFileFolder
-
-- KeyFilePath から .rst ファイル ( KeyFile )を生成する
-
-  * KeyFileName の文字コードを SJIS -> UTF8
-
-  * KeyFileName のカレントフォルダ名( KeyFileFolder )で KeyFileName のファイル名を置き換え
+  * TargetFileName のカレントフォルダ名( KeyFileFolder )で TargetFileName のファイル名を置き換え
     
-  * 拡張子を .rst にする
+  * 拡張子を ``.rst`` にする
 
-  * .rst ファイルの末尾に KeyFilePath へのリンクを追記する
+  * .rst ファイルの末尾に target_path_list へのリンクを追記する
 
-    * :smblink: ディレクティブを利用する
+    * ``:smblink:`` ディレクティブを利用する
 
-  * buildPath にファイルを配置する
+  * saveto パスにファイルを配置する
 
-- KeyFilePath の階層の深さに応じてbuildPath の index.rst ファイルを追記する
+- target_path_list の階層の深さに応じて buildPath の index.rst ファイルを追記する
 
   * 第1階層( SearchPath 直下のフォルダ名 ) index.rst の タイトルとして扱う
 
   * 第2階層 index.rst のサブタイトルとして扱う
 
   * index.rst に階層に応じて KeyFile名を追記する
+
+  * ヘッドライン化する段階は headingdepth として数字で指定可能
+
+ToDo
+===================================
+
+- reST 形式と MarkDown 形式に対応する
+
+  * TargetFileName は自動的に rst に変換する。（後方互換性）
+
+  * ``.md`` ファイル名は MarkDown 扱いとする。
+
+- saveto パスへの保存方式に2方式を用意する。
+
+  * ディレクトリを全て排除する方式（後方互換）
+
+  * ディレクトリを維持して構成する方式
+
+- 独自に index タグを収集して特設ページに一覧化する
+
+- 手動での更新コマンドを準備する
+
+require
+===================================
+
+import os.path                      # OS処理
+from chardet.universaldetector import UniversalDetector # 文字エンコード自動判定
+from collections import OrderedDict # 順序付き辞書(dict)
+from docopt import docopt           # コマンド処理時の引数の定義と解釈
+
+pandoc http://pandoc.org            # 様式変換
+
+
     
 pyInstaller めも
 ===================================
