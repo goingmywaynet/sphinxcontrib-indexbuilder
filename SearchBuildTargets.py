@@ -175,17 +175,21 @@ def create_index_file_complicateMode(target_path_list, headline_depth):
 
 
 # index.rst ファイルの中身を作る
-def create_index_file(target_path_list, headline_depth):
+def create_index_file(root_path, target_path_list, headline_depth):
     return_ = []                                          # return のためのリスト
+    root_path_depth = len(root_path.split(os.sep))        # 開始ポイントの階層深さを基準にする
+    
+    #for Debug
+    print("root path is %s and depth is %d" % (root_path, root_path_depth))
     
     for target in target_path_list:                       # target_path_list を順序良く評価していく
 
-        current_path_list = target['path'].split(os.sep)  # path を os.sep で分割してリスト化
-        depth_count = len(current_path_list) - 2          # "."と走査開始ディレクトリを省く
+        current_path_list = target['path'].split(os.sep)        # path を os.sep で分割してリスト化
+        depth_count = len(current_path_list) - root_path_depth  # "."と走査開始ディレクトリを省く
 
         #for Debug        
         print("current_path_list is %s" % current_path_list)
-        print("current_path_list len is %d and headline_depth is %d" % (len(current_path_list), headline_depth))
+        print("current_path_list len is %d and headline_depth is %d" % (depth_count, headline_depth))
 
             
         if depth_count <= headline_depth: # カウンタが headline_depth 範囲内の場合は、見出し化する
@@ -230,18 +234,29 @@ def walk_path_to_target_path_list(search_root_path, target_file_name):
 
 # ターゲットファイルを rst ファイル化して別名保存する
 def save_rst_files(target_path_list):
-    
+        
     for target in target_path_list:
 
         _full_path = os.path.join(target['drive'], target['full_path'])    # windows network drive path
 
         if os.path.exists(_full_path): 
+            
+            #for Debug
+            #print("Save %s" % _full_path)
+
             #target_path_list の各ファイルを開いていく
-            _encode = detect_file_encode(_full_path)["encoding"] # ファイルの文字コードを自動判定する
-            if _encode == "SHIFT_JIS": _encode = "cp932"                  # 自動判定で SHIFT_JIS になる場合は予防的に上位互換の cp932 として扱う
-            _file = open(_full_path,mode='r',encoding=_encode)
-            _lines = _file.readlines()
-            _file.close()
+            _encode = detect_file_encode(_full_path)["encoding"]     # ファイルの文字コードを自動判定する
+            if _encode == "SHIFT_JIS": _encode = "cp932"             # 自動判定で SHIFT_JIS になる場合は予防的に上位互換の cp932 として扱う
+                
+            try:                                                     # ファイルを開く処理は文字コード扱うので例外を予測しておく
+                _file = open(_full_path,mode='r',encoding=_encode)                                
+                _lines = _file.readlines()
+                _file.close()
+                #raise NameError('強制エラー')                         # for Debug
+            except Exception as error:                               # ファイルが開けない場合は次のループにskipする
+                print("%s \nError が発生したため、このファイルの処理はキャンセルされました。" % error)
+                continue
+
 
             if TARGET_LINK_NAME != 'none':
                 #末尾にリンクを追記する
@@ -251,11 +266,9 @@ def save_rst_files(target_path_list):
                                                                                                    target['path'])))
             _lines.append(os.linesep)
 
-            #print(os.path.join(save_path,str(target['name']) + ".rst"))
             save_file = open(os.path.join(save_path,str(target['name']) + ".rst"), mode='w', encoding='utf-8')
             for _line in _lines:
                 save_file.write(_line)
-                #print(_line)        
             save_file.close()
 
 
@@ -294,7 +307,7 @@ if __name__ == '__main__':
     target_path_list = walk_path_to_target_path_list(root_path, TARGET_FILE_NAME)
 
     # index.rst ファイルを書き出す
-    index_txt = create_index_file(target_path_list, HEADLINE_DEPTH)
+    index_txt = create_index_file(root_path, target_path_list, HEADLINE_DEPTH)
     file = open(os.path.join(save_path,"index.rst"), mode='w', encoding='utf-8')
     file.write("".join(index_txt))
     file.close()
@@ -310,7 +323,7 @@ if __name__ == '__main__':
 # 
 # HEADLINE_DEPTH = 2 # index.rst でタイトル表示する階層数 
 # TARGET_FILE_NAME = 'keyfile.txt' # 探索するファイル名 
-# TARGET_PATH = r'./test' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
+# TARGET_PATH = r'./test/Folder/Folder1' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
 # SAVE_PATH   = r'./tmp'
 # TARGET_LINK_NAME = 'Contents Folder'
 # 
@@ -334,7 +347,7 @@ if __name__ == '__main__':
 # target_path_list = walk_path_to_target_path_list(root_path, TARGET_FILE_NAME)
 # 
 # # index.rst ファイルを書き出す
-# index_txt = create_index_file(target_path_list, HEADLINE_DEPTH)
+# index_txt = create_index_file(root_path, target_path_list, HEADLINE_DEPTH)
 # file = open(os.path.join(save_path,"index.rst"), mode='w', encoding='utf-8')
 # file.write("".join(index_txt))
 # file.close()
