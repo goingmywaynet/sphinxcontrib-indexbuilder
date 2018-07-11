@@ -52,7 +52,7 @@ from docopt import docopt           # コマンド処理時の引数の定義と
 # In[ ]:
 
 
-MYVERSION = '0.2 20180622'  # このScriptのVersion
+MYVERSION = '0.3 20180711'  # このScriptのVersion
 
 
 # In[ ]:
@@ -100,9 +100,8 @@ def returnHeading(title,depth=1):
     depth = len(headingChar) if depth < 0 or depth > len(headingChar) else depth
     length = len(title.encode("utf8"))
 
-    #print(title + os.linesep + "".join([headingChar[depth-1] for x in range(length)]))
-    
-    return title + os.linesep + "".join([headingChar[depth-1] for x in range(length)]) + os.linesep
+    return title + "\n" + "".join([headingChar[depth-1] for x in range(length)]) + "\n"
+
 
     #print("".join([headingChar[depth-1] for x in range(length)]))
     #print(len(title.encode("utf8")))
@@ -152,16 +151,16 @@ def create_index_file_complicateMode(target_path_list, headline_depth):
         #    print("count--")
             
         if depth_count <= headline_depth :                # カウンタが headline_depth 範囲内の場合は、見出し化する
-            return_.append(os.linesep)
+            return_.append("\n")
             return_.append(returnHeading(target['name'],depth_count))
-            return_.append(os.linesep)
+            return_.append("\n")
             #print(depth_count)
             #print(returnHeading(target['name'],depth_count))
             print("count is %d headline\n" %depth_count)
 
         else:                                             # カウンタが headline_depth 範囲外なら記事ファイルとする
             return_.append(target['name'])
-            return_.append(os.linesep)
+            return_.append("\n")
             #print(target['name'])
             print("count is %d contents %s\n" %(depth_count, target['name']))
 
@@ -177,10 +176,10 @@ def create_index_file_complicateMode(target_path_list, headline_depth):
 # index.rst ファイルの中身を作る
 def create_index_file(root_path, target_path_list, headline_depth):
     return_ = []                                          # return のためのリスト
-    root_path_depth = len(root_path.split(os.sep))        # 開始ポイントの階層深さを基準にする
+    root_path_depth = len(os.path.splitdrive(root_path)[1].split(os.sep))        # 開始ポイントの階層深さを基準にする
     
     #for Debug
-    print("root path is %s and depth is %d" % (root_path, root_path_depth))
+    print("root path is %s and depth is %d" % (os.path.splitdrive(root_path)[1], root_path_depth))
     
     for target in target_path_list:                       # target_path_list を順序良く評価していく
 
@@ -193,13 +192,13 @@ def create_index_file(root_path, target_path_list, headline_depth):
 
             
         if depth_count <= headline_depth: # カウンタが headline_depth 範囲内の場合は、見出し化する
-            return_.append(os.linesep)
+            return_.append("\n")
             return_.append(returnHeading(target['name'],depth_count))
-            return_.append(os.linesep)
+            return_.append("\n")
             
-        else:                                             # カウンタが headline_depth 範囲外なら記事ファイルとする
-            return_.append(target['name'])
-            return_.append(os.linesep)
+        # カウンタが headline_depth 範囲外なら記事ファイルとする
+        return_.append(target['name'])
+        return_.append("\n")
             
     return return_
 
@@ -225,6 +224,11 @@ def walk_path_to_target_path_list(search_root_path, target_file_name):
                            'name': os.path.basename(_path),                 # 最終ディレクトリ名を生成対象ファイル名に
                            'depth': _path.count(os.sep)}                    # 階層の深さを
             _target_path_list.append(_target_dict)
+            
+            #for Debug
+            print("drive: %s , path: %s , full_path: %s , name: %s , depth: %d" % 
+                  (_drive,_path,os.path.join(_path, target_file_name), os.path.basename(_path), _path.count(os.sep)))
+
 
     return sorted(_target_path_list,key=lambda my_dict: my_dict['path'])
 
@@ -260,11 +264,12 @@ def save_rst_files(target_path_list):
 
             if TARGET_LINK_NAME != 'none':
                 #末尾にリンクを追記する
-                _lines.append(os.linesep)
+                _lines.append("\n")
                 _lines.append(":smblink:`{LINK_NAME} <{LINK_PATH}>`".format(LINK_NAME=TARGET_LINK_NAME, 
                                                                             LINK_PATH=os.path.join(target['drive'],
                                                                                                    target['path'])))
-            _lines.append(os.linesep)
+                
+            _lines.append("\n")
 
             save_file = open(os.path.join(save_path,str(target['name']) + ".rst"), mode='w', encoding='utf-8')
             for _line in _lines:
@@ -323,7 +328,7 @@ if __name__ == '__main__':
 # 
 # HEADLINE_DEPTH = 2 # index.rst でタイトル表示する階層数 
 # TARGET_FILE_NAME = 'keyfile.txt' # 探索するファイル名 
-# TARGET_PATH = r'./test/Folder/Folder1' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
+# TARGET_PATH = r'./test' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
 # SAVE_PATH   = r'./tmp'
 # TARGET_LINK_NAME = 'Contents Folder'
 # 
