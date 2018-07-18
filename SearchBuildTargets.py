@@ -52,7 +52,7 @@ from docopt import docopt           # コマンド処理時の引数の定義と
 # In[ ]:
 
 
-MYVERSION = '0.3 20180711'  # このScriptのVersion
+MYVERSION = '0.4 20180718'  # このScriptのVersion
 
 
 # In[ ]:
@@ -88,7 +88,6 @@ def detect_file_encode(file):
         detector.close()
 
     return detector.result
-    #print(encoding_info)
 
 
 # In[ ]:
@@ -99,75 +98,11 @@ def returnHeading(title,depth=1):
     headingChar = ['=','-','^','"']
     depth = len(headingChar) if depth < 0 or depth > len(headingChar) else depth
     length = len(title.encode("utf8"))
-
-    return title + "\n" + "".join([headingChar[depth-1] for x in range(length)]) + "\n"
-
-
-    #print("".join([headingChar[depth-1] for x in range(length)]))
-    #print(len(title.encode("utf8")))
-
-
-# In[ ]:
-
-
-# index.rst ファイルの中身を作る ( ややこしい版 とりあえず不使用)
-def create_index_file_complicateMode(target_path_list, headline_depth):
-    return_ = []                                          # return のためのリスト
     
-    current_root = target_path_list[0]['path'].split(os.sep)  # あとで評価の枝が移動したことを検知するために1件目を
-                                                              # 比較対象として持っておく
+    headingTitle = title + "\n" + "".join([headingChar[depth-1] for x in range(length)]) + "\n" # titleヘッダ
+    toctreeDirective = "\n.. toctree::" + "\n" + "\t" + ":maxdepth: 1\n"                          # toctreeディレクティブ
 
-    before_target = current_root                          # 評価枝の現在の開始位置(まずは1件目が最初の根っことなる)
-    before_depth  = len(current_root) - 1                 # 評価枝の現在位置の深さ
-    depth_count   = 1                                     # 評価階層の深さの初期値
-
-    for target in target_path_list:                       # target_path_list を順序良く評価していく
-
-        # 現在位置比較のための情報を作る
-        #before_path  = before_target                               # 直前の評価位置
-        current_path = target['path'].split(os.sep)                 # 現在の評価位置
-                                                                    # 現在の根っこは current_root
-        
-        comp_depth = min(target['depth']+1, len(current_root))   # 評価位置の階層が変わった場合は浅い方で比較
-
-        #for Debug
-        print("depth> [R]%d [B]%d [C]%d => %d" % (len(current_root) , len(before_target), target['depth']+1, comp_depth))
-        print("work > [R]%s vs [C]%s" % (current_root, current_path))
-        print("depth> [B]%d vs [C]%d" % (before_depth, target['depth']))
-        print("path > [R]%s vs [C]%s" % (current_root, current_path[:comp_depth]))
-
-
-        if current_root[:comp_depth] != current_path[:comp_depth] : # 評価パスが違う枝に移動した場合リセット
-            depth_count = 1                               # Headline 化階層カウンタ = 1 = 必ずHeadline化
-            current_root = current_path                   # 現在のrootを変更
-            print("root reset")
-            
-        elif target['depth'] > before_depth :             # 評価の途中で階層が深くなった場合はカウンタ++
-            depth_count = depth_count + 1
-            print("count++")
-            
-        #elif target['depth'] < before_depth :             # 評価の途中で階層が浅くなった場合はカウンタ--
-        #    depth_count = depth_count - 1
-        #    print("count--")
-            
-        if depth_count <= headline_depth :                # カウンタが headline_depth 範囲内の場合は、見出し化する
-            return_.append("\n")
-            return_.append(returnHeading(target['name'],depth_count))
-            return_.append("\n")
-            #print(depth_count)
-            #print(returnHeading(target['name'],depth_count))
-            print("count is %d headline\n" %depth_count)
-
-        else:                                             # カウンタが headline_depth 範囲外なら記事ファイルとする
-            return_.append(target['name'])
-            return_.append("\n")
-            #print(target['name'])
-            print("count is %d contents %s\n" %(depth_count, target['name']))
-
-        before_depth = target['depth']                # 直前の深さを保持
-        before_target = target                        # 直前の対象を保持
-
-    return return_
+    return headingTitle + toctreeDirective
 
 
 # In[ ]:
@@ -179,7 +114,7 @@ def create_index_file(root_path, target_path_list, headline_depth):
     root_path_depth = len(os.path.splitdrive(root_path)[1].split(os.sep))        # 開始ポイントの階層深さを基準にする
     
     #for Debug
-    print("root path is %s and depth is %d" % (os.path.splitdrive(root_path)[1], root_path_depth))
+    #print("root path is %s and depth is %d" % (os.path.splitdrive(root_path)[1], root_path_depth))
     
     for target in target_path_list:                       # target_path_list を順序良く評価していく
 
@@ -187,8 +122,8 @@ def create_index_file(root_path, target_path_list, headline_depth):
         depth_count = len(current_path_list) - root_path_depth  # "."と走査開始ディレクトリを省く
 
         #for Debug        
-        print("current_path_list is %s" % current_path_list)
-        print("current_path_list len is %d and headline_depth is %d" % (depth_count, headline_depth))
+        #print("current_path_list is %s" % current_path_list)
+        #print("current_path_list len is %d and headline_depth is %d" % (depth_count, headline_depth))
 
             
         if depth_count <= headline_depth: # カウンタが headline_depth 範囲内の場合は、見出し化する
@@ -197,7 +132,7 @@ def create_index_file(root_path, target_path_list, headline_depth):
             return_.append("\n")
             
         # カウンタが headline_depth 範囲外なら記事ファイルとする
-        return_.append(target['name'])
+        return_.append("\t" + target['name'])
         return_.append("\n")
             
     return return_
@@ -226,8 +161,8 @@ def walk_path_to_target_path_list(search_root_path, target_file_name):
             _target_path_list.append(_target_dict)
             
             #for Debug
-            print("drive: %s , path: %s , full_path: %s , name: %s , depth: %d" % 
-                  (_drive,_path,os.path.join(_path, target_file_name), os.path.basename(_path), _path.count(os.sep)))
+            #print("drive: %s , path: %s , full_path: %s , name: %s , depth: %d" % 
+            #      (_drive,_path,os.path.join(_path, target_file_name), os.path.basename(_path), _path.count(os.sep)))
 
 
     return sorted(_target_path_list,key=lambda my_dict: my_dict['path'])
@@ -328,7 +263,7 @@ if __name__ == '__main__':
 # 
 # HEADLINE_DEPTH = 2 # index.rst でタイトル表示する階層数 
 # TARGET_FILE_NAME = 'keyfile.txt' # 探索するファイル名 
-# TARGET_PATH = r'./test' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
+# TARGET_PATH = r'./test/Folder/Folder1' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
 # SAVE_PATH   = r'./tmp'
 # TARGET_LINK_NAME = 'Contents Folder'
 # 
