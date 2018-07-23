@@ -47,19 +47,63 @@ import os.path                      # OS処理
 from chardet.universaldetector import UniversalDetector # 文字エンコード自動判定
 from collections import OrderedDict # 順序付き辞書(dict)
 from docopt import docopt           # コマンド処理時の引数の定義と解釈
+import shelve                       # データ永続化
 
 
 # In[ ]:
 
 
-MYVERSION = '0.4 20180718'  # このScriptのVersion
+MYVERSION = '0.1 20180723'  # このScriptのVersion
 
 
 # In[ ]:
 
 
-# 指定のファイル名がリストに存在するかの判定
+def is_updaed_on_DB(dbfilename,full_path,timestamp):
+    """永続化されたtarget_path_listをリードオンリーで開き、ターゲットとなるファイルが更新されたかどうかを判定する。
+    dbfilename : 永続化されたファイル名
+    full_path  : チェックするファイルのfull_path(現在)
+    timestamp  : チェックするファイルのtimestamp(現在)
+    
+    更新ありの場合は True 、無しの場合は False を返す"""
+    
+    if os.path.exists(dbfilename+".db"): #dbfileが存在した場合
+        with shelve.open(dbfilename,flag='r') as db: #shelve.open() をコンテキストマネージャとして使うので close() は不要
+            try:                   #永続化されたdb内にファイルが存在する場合、タイムスタンプを比較する
+                oldStamp = db[full_path]['timestamp']
+                if oldStamp == timestamp:
+                    #print("タイムスタンプ一致 %s - %s" % (oldStamp,timestamp))
+                    return False  #同じタイムスタンプの場合は更新なしとして False 返し
+                else:
+                    #print("タイムスタンプ不一致 %s - %s" % (oldStamp,timestamp))
+                    return True   #異なるタイムスタンプの場合は更新ありとして True 返し
+            except:
+                #print("DBに登録なし")
+                return True       #永続化されたdb内にファイルが存在しない場合はTrueを返す
+    else:
+        #print("DBなし")
+        return True               #dbfile が存在しない場合は一律Trueを返す
+        
+
+
+# In[ ]:
+
+
+def write_shelve(filename, target_path_list):
+    """target_path_listを永続化する (常に新たに読み書き用の新規のデータベースを作成する)
+    filename : 永続化するファイル名
+    target_path_list : 継続化するtarget_path_list"""
+    
+    with shelve.open(filename,flag='n') as db: #shelve.open() をコンテキストマネージャとして使うので close() は不要
+        for dic in target_path_list:
+            db[dic['full_path']] = dic
+
+
+# In[ ]:
+
+
 def isContain(filelist, keywoard):
+    """指定のファイル名がリストに存在するかの判定"""
     for filename in filelist:
         if filename == keywoard:
             return True
@@ -68,8 +112,8 @@ def isContain(filelist, keywoard):
 # In[ ]:
 
 
-# ファイルの文字エンコード判定
 def detect_file_encode(file):
+    """ファイルの文字エンコード判定"""
     detector = UniversalDetector()
 
     try:
@@ -93,8 +137,8 @@ def detect_file_encode(file):
 # In[ ]:
 
 
-# rst 見出し生成
 def returnHeading(title,depth=1):
+    """rst 見出し生成"""
     headingChar = ['=','-','^','"']
     depth = len(headingChar) if depth < 0 or depth > len(headingChar) else depth
     length = len(title.encode("utf8"))
@@ -108,8 +152,8 @@ def returnHeading(title,depth=1):
 # In[ ]:
 
 
-# index.rst ファイルの中身を作る
 def create_index_file(root_path, target_path_list, headline_depth):
+    """index.rst ファイルの中身を作る"""
     return_ = []                                          # return のためのリスト
     root_path_depth = len(os.path.splitdrive(root_path)[1].split(os.sep))        # 開始ポイントの階層深さを基準にする
     
@@ -141,8 +185,8 @@ def create_index_file(root_path, target_path_list, headline_depth):
 # In[ ]:
 
 
-# 指定した path を巡回して、target_path_list を作る
 def walk_path_to_target_path_list(search_root_path, target_file_name):
+    """指定した path を巡回して、target_path_list を作る"""
 
     #target_dict = OrderedDict() # 順序付き辞書(dict)
     _target_path_list = [] # 辞書入れリスト
@@ -157,7 +201,9 @@ def walk_path_to_target_path_list(search_root_path, target_file_name):
                            'path': _path,                                   # target file を含まない path
                            'full_path': os.path.join(_path, target_file_name),   # target file を含む path
                            'name': os.path.basename(_path),                 # 最終ディレクトリ名を生成対象ファイル名に
-                           'depth': _path.count(os.sep)}                    # 階層の深さを
+                           'depth': _path.count(os.sep),                    # 階層の深さを
+                           'timestamp': os.stat(os.path.join(_path, target_file_name)).st_mtime # TimeStamp
+                           }                    
             _target_path_list.append(_target_dict)
             
             #for Debug
@@ -171,13 +217,20 @@ def walk_path_to_target_path_list(search_root_path, target_file_name):
 # In[ ]:
 
 
-# ターゲットファイルを rst ファイル化して別名保存する
 def save_rst_files(target_path_list):
+    """ターゲットファイルを rst ファイル化して別名保存する
+    ただし、 is_updated_on_DB 関数で、 永続化された target_path_list とtimestamp比較して新しいものだけ保存する"""
         
     for target in target_path_list:
 
         _full_path = os.path.join(target['drive'], target['full_path'])    # windows network drive path
+        
+        #for Debug
+        #print(is_updaed_on_DB(os.path.join(SAVE_PATH,"pathList"),target['full_path'],target['timestamp']))
 
+        if not is_updaed_on_DB(os.path.join(SAVE_PATH,"pathList"),target['full_path'],target['timestamp']):
+            continue # 前回と比較して、ファイルが更新されていない場合は、このファイルを更新しない
+        
         if os.path.exists(_full_path): 
             
             #for Debug
@@ -217,6 +270,7 @@ def save_rst_files(target_path_list):
 
 # MAIN 処理
 if __name__ == '__main__':
+    """MAIN"""
     arguments = docopt(__doc__, version=MYVERSION)
     
     # 引数の整理
@@ -230,6 +284,7 @@ if __name__ == '__main__':
     # 検索先定義がない場合は終了する
     if TARGET_PATH == None or not os.path.exists(TARGET_PATH):
         print('検索先が見つからなかった為、終了します。')
+        print('このscriptの使い方は --help オプションにて確認できます。')
         import sys
         sys.exit(1) 
         
@@ -255,6 +310,9 @@ if __name__ == '__main__':
     
     # ターゲットファイルを rst ファイル化
     save_rst_files(target_path_list)
+    
+    # target_path_list を永続化
+    write_shelve(os.path.join(save_path,"pathList"),target_path_list)
 
 
 # # デバッグ用
@@ -264,7 +322,7 @@ if __name__ == '__main__':
 # HEADLINE_DEPTH = 2 # index.rst でタイトル表示する階層数 
 # TARGET_FILE_NAME = 'keyfile.txt' # 探索するファイル名 
 # TARGET_PATH = r'./test/Folder/Folder1' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
-# SAVE_PATH   = r'./tmp'
+# SAVE_PATH   = r'./test/tmp'
 # TARGET_LINK_NAME = 'Contents Folder'
 # 
 # # 検索先定義がない場合は終了する
@@ -294,4 +352,12 @@ if __name__ == '__main__':
 # 
 # 
 
+# # rstファイルを生成
 # save_rst_files(target_path_list)
+
+# # target_path_list を永続化
+# write_shelve(os.path.join(SAVE_PATH,"pathList"),target_path_list)
+
+# db = shelve.open(os.path.join(SAVE_PATH,"pathList"))
+
+# db['./test/Folder/Folder1/FolderA/FolderA2/keyfile.txt']
