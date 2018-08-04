@@ -26,7 +26,8 @@ Usage:
                      [-o <path>     | --saveto=<path>]
                      [-t <filename> | --targetname=<filename>]
                      [-d <number>   | --headingdepth=<number>]
-                     [-l <text>     | --linktext=<text>]           
+                     [-l <text>     | --linktext=<text>]
+                     [-i <filename> | --indexheaderfile=<indexheaderfile>]
   SearchBuildTargets [-h] [--help]
 
 Options:
@@ -35,6 +36,7 @@ Options:
   -t, --targetname=<filename>   : ターゲットファイル名   [default: keyfile.txt]
   -d, --headingdepth=<number>   : 見出しとして使う階層数 [default: 1]
   -l, --linktext=<text>         : rstファイル末尾に付加する検索されたフォルダへのリンク名。定義ない場合は作成しない。 [default: none]
+  -i, --indexheaderfile=<indexheaderfile> : index.rst のヘッダに挿入する文字列のファイル :builddate: と書くと日時を挿入する [default: none]
   -h, --help                    : show this help message and exit
 
 """
@@ -48,6 +50,7 @@ from chardet.universaldetector import UniversalDetector # 文字エンコード�
 from collections import OrderedDict # 順序付き辞書(dict)
 from docopt import docopt           # コマンド処理時の引数の定義と解釈
 import shelve                       # データ永続化
+import datetime                     # 日付処理
 
 
 # In[ ]:
@@ -185,6 +188,32 @@ def create_index_file(root_path, target_path_list, headline_depth):
 # In[ ]:
 
 
+def insert_header(index_txt): 
+    """ヘッダーファイルがあれば、それを開き、:builddate:を日付に変換してindex_txtの先頭に挿入する。"""
+
+    header = []
+    if os.sep != '/': headerF = HEADER_FILE.replace('/', os.sep)
+    else: headerF = HEADER_FILE
+        
+    try:                                                # ファイルを開く処理は文字コード扱うので例外を予測しておく
+        _encode = detect_file_encode(headerF)["encoding"]     # ファイルの文字コードを自動判定する
+        if _encode == "SHIFT_JIS": _encode = "cp932"             # 自動判定で SHIFT_JIS になる場合は予防的に上位互換の cp932 として扱う
+        _file = open(headerF,mode='r',encoding=_encode)                                
+        _lines = _file.readlines()
+        _file.close()
+        #raise NameError('強制エラー')                         # for Debug
+        for _line in _lines:
+            header.append(_line.replace(':builddate:',datetime.datetime.today().strftime("%Y/%m/%d %H:%M")))
+    except Exception as error:                               # ファイルが開けない場合は次のループにskipする
+        print("%s \nError が発生したため、このファイルの処理はキャンセルされました。" % error)
+        header=""
+
+    return header + index_txt
+
+
+# In[ ]:
+
+
 def walk_path_to_target_path_list(search_root_path, target_file_name):
     """指定した path を巡回して、target_path_list を作る"""
 
@@ -250,7 +279,7 @@ def save_rst_files(target_path_list):
                 continue
 
 
-            if TARGET_LINK_NAME != 'none':
+            if TARGET_LINK_NAME is not None:
                 #末尾にリンクを追記する
                 _lines.append("\n")
                 _lines.append(":smblink:`{LINK_NAME} <{LINK_PATH}>`".format(LINK_NAME=TARGET_LINK_NAME, 
@@ -279,10 +308,11 @@ if __name__ == '__main__':
     TARGET_PATH      = arguments['SEARCH_FROM']    # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
     SAVE_PATH        = arguments['--saveto']       # 保存先パス
     TARGET_LINK_NAME = arguments['--linktext']     # .rst ファイル末尾に追記する元ファイルへのリンク名 'none'なら作らない
+    HEADER_FILE      = arguments['--indexheaderfile']   # index.rst の冒頭に挿入する文字列ファイル
     #print(arguments)
     
     # 検索先定義がない場合は終了する
-    if TARGET_PATH == None or not os.path.exists(TARGET_PATH):
+    if TARGET_PATH is None or not os.path.exists(TARGET_PATH):
         print('検索先が見つからなかった為、終了します。')
         print('このscriptの使い方は --help オプションにて確認できます。')
         import sys
@@ -303,6 +333,7 @@ if __name__ == '__main__':
 
     # index.rst ファイルを書き出す
     index_txt = create_index_file(root_path, target_path_list, HEADLINE_DEPTH)
+    if HEADER_FILE is not None: index_txt = insert_header(index_txt) #ヘッダファイルを挿入する
     file = open(os.path.join(save_path,"index.rst"), mode='w', encoding='utf-8')
     file.write("".join(index_txt))
     file.close()
@@ -324,9 +355,10 @@ if __name__ == '__main__':
 # TARGET_PATH = r'./test/Folder/Folder1' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
 # SAVE_PATH   = r'./test/tmp'
 # TARGET_LINK_NAME = 'Contents Folder'
+# HEADER_FILE = 'header.rst'
 # 
 # # 検索先定義がない場合は終了する
-# if TARGET_PATH == None or not os.path.exists(TARGET_PATH):
+# if TARGET_PATH is None or not os.path.exists(TARGET_PATH):
 #     print('検索先が見つからなかった為、終了します。')
 #     import sys
 #     sys.exit(1) 
@@ -346,6 +378,7 @@ if __name__ == '__main__':
 # 
 # # index.rst ファイルを書き出す
 # index_txt = create_index_file(root_path, target_path_list, HEADLINE_DEPTH)
+# if HEADER_FILE is not None: index_txt = insert_header(index_txt) #ヘッダファイルを挿入する
 # file = open(os.path.join(save_path,"index.rst"), mode='w', encoding='utf-8')
 # file.write("".join(index_txt))
 # file.close()
