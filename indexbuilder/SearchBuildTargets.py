@@ -297,9 +297,8 @@ def save_rst_files(target_path_list):
 # In[ ]:
 
 
-# MAIN 処理
-if __name__ == '__main__':
-    """MAIN"""
+def main():
+    """MAIN処理"""
     arguments = docopt(__doc__, version=MYVERSION)
     
     # 引数の整理
@@ -344,6 +343,15 @@ if __name__ == '__main__':
     
     # target_path_list を永続化
     write_shelve(os.path.join(save_path,"pathList"),target_path_list)
+
+
+# In[ ]:
+
+
+# MAIN 処理
+if __name__ == '__main__':
+    main()
+    
 
 
 # # デバッグ用

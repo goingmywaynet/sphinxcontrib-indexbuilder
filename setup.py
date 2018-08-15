@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 import sys
 sys.path.append('./sphinxcontrib')
 
-f = open('README', 'r')
+f = open('README.rst', 'r')
 try:
     long_desc = f.read()
 finally:
@@ -44,6 +44,10 @@ setup(
     license='MIT',
     platforms='any',
     include_package_data=True,
-    namespace_packages=['sphinxcontrib'],
+    #namespace_packages=['sphinxcontrib'],
+    entry_points = {
+          # commandline tool setup
+          'console_scripts': ['SearchBuildTargets=indexbuilder.SearchBuildTargets:main'],
+    },
     zip_safe=False
 )
