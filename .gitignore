@@ -3,11 +3,10 @@
 
 # jupyter notebook
 .ipynb_checkpoints/*
-.specSheet.rst.swp
-.specSheet.rst.un~ 
 
 # pyenv and etc..
 *~
+.*.swp
 pipFiles/*
 
 # Compiled python modules.

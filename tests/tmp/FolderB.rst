@@ -13,4 +13,4 @@
 
 
 
-:smblink:`link <./test/Folder/Folder1/FolderA/FolderA2>`
+:smblink:`Link <./test/Folder/Folder1/FolderB>`
