@@ -23,7 +23,26 @@ all: script test
 script:
 	jupyter nbconvert --output-dir=$(SCRIPT_OUTPUT_DIR) --to script *.ipynb
 
+
+#
+# 配布パッケージを作る Creating tar archive
+#
+sdist:; python setup.py sdist
+
 #
 # unittest を走らせる
 #
 test:; python -m unittest -v
+
+#
+# tests フォルダで動作実験
+#
+test-run:
+	python ./indexbuilder/SearchBuildTargets.py -o ./tests/tmp -t keyfile.txt -d 1 -l "hoge" -i ./header.rst ./tests/Folder/Folder1
+	ls -tlrs ./tests/tmp
+
+#
+# tests フォルダの初期化
+#
+test-clean:
+	rm ./tests/tmp/*

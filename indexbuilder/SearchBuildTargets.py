@@ -62,31 +62,44 @@ MYVERSION = '0.1 20180723'  # このScriptのVersion
 # In[ ]:
 
 
-def is_updaed_on_DB(dbfilename,full_path,timestamp):
-    """永続化されたtarget_path_listをリードオンリーで開き、ターゲットとなるファイルが更新されたかどうかを判定する。
-    dbfilename : 永続化されたファイル名
+def is_updaed_on_DB(db, full_path, timestamp):
+    """db内でターゲットとなるファイルが更新されたかどうかを判定する。
+    db : shelve インスタンス
     full_path  : チェックするファイルのfull_path(現在)
     timestamp  : チェックするファイルのtimestamp(現在)
     
     更新ありの場合は True 、無しの場合は False を返す"""
     
-    if os.path.exists(dbfilename+".db"): #dbfileが存在した場合
-        with shelve.open(dbfilename,flag='r') as db: #shelve.open() をコンテキストマネージャとして使うので close() は不要
-            try:                   #永続化されたdb内にファイルが存在する場合、タイムスタンプを比較する
-                oldStamp = db[full_path]['timestamp']
-                if oldStamp == timestamp:
-                    #print("タイムスタンプ一致 %s - %s" % (oldStamp,timestamp))
-                    return False  #同じタイムスタンプの場合は更新なしとして False 返し
-                else:
-                    #print("タイムスタンプ不一致 %s - %s" % (oldStamp,timestamp))
-                    return True   #異なるタイムスタンプの場合は更新ありとして True 返し
-            except:
-                #print("DBに登録なし")
-                return True       #永続化されたdb内にファイルが存在しない場合はTrueを返す
+    try:                   #永続化されたdb内にファイルが存在する場合、タイムスタンプを比較する
+        oldStamp = db[full_path]['timestamp']
+        if oldStamp == timestamp:
+            #print("タイムスタンプ一致 %s - %s" % (oldStamp,timestamp))
+            return False  #同じタイムスタンプの場合は更新なしとして False 返し
+        else:
+            #print("タイムスタンプ不一致 %s - %s" % (oldStamp,timestamp))
+            return True   #異なるタイムスタンプの場合は更新ありとして True 返し
+    except:
+        #print("DBに登録なし")
+        return True       #永続化されたdb内にファイルが存在しない場合はTrueを返す        
+
+
+# In[ ]:
+
+
+def open_shelve(dbfilename):
+    """永続化されたshelveを開き、インスタンスを返す
+    dbfilename : 永続化されたファイル名"""
+    
+    if os.path.exists(dbfilename+".db") or os.path.exists(dbfilename+".dat"): #dbfileが存在した場合 versionにより.db か .dat/.dir/.bak がある
+        try: 
+            db = shelve.open(dbfilename,flag='r') 
+        except:
+            return False
+        else:
+            return db
     else:
         #print("DBなし")
-        return True               #dbfile が存在しない場合は一律Trueを返す
-        
+        return True               #dbfile が存在しない場合は一律Trueを返す        
 
 
 # In[ ]:
@@ -188,12 +201,12 @@ def create_index_file(root_path, target_path_list, headline_depth):
 # In[ ]:
 
 
-def insert_header(index_txt): 
+def insert_header(index_txt, header_file): 
     """ヘッダーファイルがあれば、それを開き、:builddate:を日付に変換してindex_txtの先頭に挿入する。"""
 
     header = []
-    if os.sep != '/': headerF = HEADER_FILE.replace('/', os.sep)
-    else: headerF = HEADER_FILE
+    if os.sep != '/': headerF = header_file.replace('/', os.sep)
+    else: headerF = header_file
         
     try:                                                # ファイルを開く処理は文字コード扱うので例外を予測しておく
         _encode = detect_file_encode(headerF)["encoding"]     # ファイルの文字コードを自動判定する
@@ -228,10 +241,10 @@ def walk_path_to_target_path_list(search_root_path, target_file_name):
             _drive, _path = os.path.splitdrive(_root) # ネットワークドライブ名とパス名を分離         
             _target_dict = {'drive': _drive,                                 # windows 共有ディレクトリのドライブ名
                            'path': _path,                                   # target file を含まない path
-                           'full_path': os.path.join(_path, target_file_name),   # target file を含む path
+                           'full_path': os.path.join(_drive, _path, target_file_name),   # target file を含む path
                            'name': os.path.basename(_path),                 # 最終ディレクトリ名を生成対象ファイル名に
                            'depth': _path.count(os.sep),                    # 階層の深さを
-                           'timestamp': os.stat(os.path.join(_path, target_file_name)).st_mtime # TimeStamp
+                           'timestamp': os.stat(os.path.join(_drive, _path, target_file_name)).st_mtime # TimeStamp
                            }                    
             _target_path_list.append(_target_dict)
             
@@ -246,19 +259,19 @@ def walk_path_to_target_path_list(search_root_path, target_file_name):
 # In[ ]:
 
 
-def save_rst_files(target_path_list):
+def save_rst_files(target_path_list, save_path, target_link_name):
     """ターゲットファイルを rst ファイル化して別名保存する
     ただし、 is_updated_on_DB 関数で、 永続化された target_path_list とtimestamp比較して新しいものだけ保存する"""
-        
+    
+    db = open_shelve(os.path.join(save_path,"pathList")) # shelveを開く
+    
     for target in target_path_list:
 
         _full_path = os.path.join(target['drive'], target['full_path'])    # windows network drive path
         
-        #for Debug
-        #print(is_updaed_on_DB(os.path.join(SAVE_PATH,"pathList"),target['full_path'],target['timestamp']))
-
-        if not is_updaed_on_DB(os.path.join(SAVE_PATH,"pathList"),target['full_path'],target['timestamp']):
-            continue # 前回と比較して、ファイルが更新されていない場合は、このファイルを更新しない
+        if type(db) != bool: # shelve が存在すれば (bool値でなければ)
+            if not is_updaed_on_DB(db,target['full_path'],target['timestamp']):
+                continue # 前回と比較して、ファイルが更新されていない場合は、このファイルを更新しない
         
         if os.path.exists(_full_path): 
             
@@ -279,10 +292,10 @@ def save_rst_files(target_path_list):
                 continue
 
 
-            if TARGET_LINK_NAME is not None:
+            if target_link_name is not None:
                 #末尾にリンクを追記する
-                _lines.append("\n")
-                _lines.append(":smblink:`{LINK_NAME} <{LINK_PATH}>`".format(LINK_NAME=TARGET_LINK_NAME, 
+                _lines.append("\n\n")
+                _lines.append(":smblink:`{LINK_NAME} <{LINK_PATH}>`".format(LINK_NAME=target_link_name, 
                                                                             LINK_PATH=os.path.join(target['drive'],
                                                                                                    target['path'])))
                 
@@ -292,6 +305,9 @@ def save_rst_files(target_path_list):
             for _line in _lines:
                 save_file.write(_line)
             save_file.close()
+    
+    if type(db) != bool: # shelve が存在すれば (bool値でなければ)
+        db.close() # shelve を閉じる
 
 
 # In[ ]:
@@ -308,7 +324,7 @@ def main():
     SAVE_PATH        = arguments['--saveto']       # 保存先パス
     TARGET_LINK_NAME = arguments['--linktext']     # .rst ファイル末尾に追記する元ファイルへのリンク名 'none'なら作らない
     HEADER_FILE      = arguments['--indexheaderfile']   # index.rst の冒頭に挿入する文字列ファイル
-    #print(arguments)
+    print(arguments)
     
     # 検索先定義がない場合は終了する
     if TARGET_PATH is None or not os.path.exists(TARGET_PATH):
@@ -332,14 +348,14 @@ def main():
 
     # index.rst ファイルを書き出す
     index_txt = create_index_file(root_path, target_path_list, HEADLINE_DEPTH)
-    if HEADER_FILE is not None: index_txt = insert_header(index_txt) #ヘッダファイルを挿入する
+    if HEADER_FILE is not None: index_txt = insert_header(index_txt, HEADER_FILE) #ヘッダファイルを挿入する
     file = open(os.path.join(save_path,"index.rst"), mode='w', encoding='utf-8')
     file.write("".join(index_txt))
     file.close()
 
     
     # ターゲットファイルを rst ファイル化
-    save_rst_files(target_path_list)
+    save_rst_files(target_path_list, save_path, TARGET_LINK_NAME)
     
     # target_path_list を永続化
     write_shelve(os.path.join(save_path,"pathList"),target_path_list)
@@ -360,8 +376,8 @@ if __name__ == '__main__':
 # 
 # HEADLINE_DEPTH = 2 # index.rst でタイトル表示する階層数 
 # TARGET_FILE_NAME = 'keyfile.txt' # 探索するファイル名 
-# TARGET_PATH = r'./test/Folder/Folder1' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
-# SAVE_PATH   = r'./test/tmp'
+# TARGET_PATH = r'./tests/Folder/Folder1' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
+# SAVE_PATH   = r'./tests/tmp'
 # TARGET_LINK_NAME = 'Contents Folder'
 # HEADER_FILE = 'header.rst'
 # 
@@ -386,19 +402,14 @@ if __name__ == '__main__':
 # 
 # # index.rst ファイルを書き出す
 # index_txt = create_index_file(root_path, target_path_list, HEADLINE_DEPTH)
-# if HEADER_FILE is not None: index_txt = insert_header(index_txt) #ヘッダファイルを挿入する
+# if HEADER_FILE is not None: index_txt = insert_header(index_txt, HEADER_FILE) #ヘッダファイルを挿入する
 # file = open(os.path.join(save_path,"index.rst"), mode='w', encoding='utf-8')
 # file.write("".join(index_txt))
 # file.close()
 # 
 # 
-
-# # rstファイルを生成
-# save_rst_files(target_path_list)
-
+# # ターゲットファイルを rst ファイル化
+# save_rst_files(target_path_list, save_path, TARGET_LINK_NAME)
+# 
 # # target_path_list を永続化
-# write_shelve(os.path.join(SAVE_PATH,"pathList"),target_path_list)
-
-# db = shelve.open(os.path.join(SAVE_PATH,"pathList"))
-
-# db['./test/Folder/Folder1/FolderA/FolderA2/keyfile.txt']
+# write_shelve(os.path.join(save_path,"pathList"),target_path_list)
