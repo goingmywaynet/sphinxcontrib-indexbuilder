@@ -5,6 +5,23 @@
 –ÚŸ1
 ==========
 
+smblink
+-----------------------------
+
+:smblink:`linkedfile.txt`
+
+:smblink:`this is file <linkedfile.txt>`
+
+image
+-----------------------------
+
+.. image:: test.jpg
+
+figure
+-----------------------------
+
+.. figure:: test.jpg
+
 ¬’i—1
 ----------
 

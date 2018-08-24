@@ -42,7 +42,7 @@ Options:
 """
 
 
-# In[ ]:
+# In[1]:
 
 
 import os.path                      # OS処理
@@ -51,6 +51,7 @@ from collections import OrderedDict # 順序付き辞書(dict)
 from docopt import docopt           # コマンド処理時の引数の定義と解釈
 import shelve                       # データ永続化
 import datetime                     # 日付処理
+import re                           # 正規表現処理
 
 
 # In[ ]:
@@ -59,7 +60,7 @@ import datetime                     # 日付処理
 MYVERSION = '0.1 20180723'  # このScriptのVersion
 
 
-# In[ ]:
+# In[2]:
 
 
 def is_updaed_on_DB(db, full_path, timestamp):
@@ -83,7 +84,7 @@ def is_updaed_on_DB(db, full_path, timestamp):
         return True       #永続化されたdb内にファイルが存在しない場合はTrueを返す        
 
 
-# In[ ]:
+# In[3]:
 
 
 def open_shelve(dbfilename):
@@ -102,7 +103,7 @@ def open_shelve(dbfilename):
         return True               #dbfile が存在しない場合は一律Trueを返す        
 
 
-# In[ ]:
+# In[4]:
 
 
 def write_shelve(filename, target_path_list):
@@ -115,7 +116,7 @@ def write_shelve(filename, target_path_list):
             db[dic['full_path']] = dic
 
 
-# In[ ]:
+# In[5]:
 
 
 def isContain(filelist, keywoard):
@@ -125,7 +126,7 @@ def isContain(filelist, keywoard):
             return True
 
 
-# In[ ]:
+# In[6]:
 
 
 def detect_file_encode(file):
@@ -150,7 +151,7 @@ def detect_file_encode(file):
     return detector.result
 
 
-# In[ ]:
+# In[7]:
 
 
 def returnHeading(title,depth=1):
@@ -165,7 +166,7 @@ def returnHeading(title,depth=1):
     return headingTitle + toctreeDirective
 
 
-# In[ ]:
+# In[8]:
 
 
 def create_index_file(root_path, target_path_list, headline_depth):
@@ -198,7 +199,7 @@ def create_index_file(root_path, target_path_list, headline_depth):
     return return_
 
 
-# In[ ]:
+# In[9]:
 
 
 def insert_header(index_txt, header_file): 
@@ -224,7 +225,7 @@ def insert_header(index_txt, header_file):
     return header + index_txt
 
 
-# In[ ]:
+# In[10]:
 
 
 def walk_path_to_target_path_list(search_root_path, target_file_name):
@@ -244,7 +245,8 @@ def walk_path_to_target_path_list(search_root_path, target_file_name):
                            'full_path': os.path.join(_drive, _path, target_file_name),   # target file を含む path
                            'name': os.path.basename(_path),                 # 最終ディレクトリ名を生成対象ファイル名に
                            'depth': _path.count(os.sep),                    # 階層の深さを
-                           'timestamp': os.stat(os.path.join(_drive, _path, target_file_name)).st_mtime # TimeStamp
+                           'timestamp': os.stat(os.path.join(_drive, _path, target_file_name)).st_mtime, # TimeStamp
+                           'drive_path': os.path.join(_drive, _path)   # drive を含む path
                            }                    
             _target_path_list.append(_target_dict)
             
@@ -254,6 +256,76 @@ def walk_path_to_target_path_list(search_root_path, target_file_name):
 
 
     return sorted(_target_path_list,key=lambda my_dict: my_dict['path'])
+
+
+# In[99]:
+
+
+def convert_smblink(lines, drive_path):
+    """smblink ファイルのパス置き換えを行う"""
+    
+    for line, contents in enumerate(lines):
+        
+        sub_pattern = ''
+        
+        #
+        # :smblink'`//path/to/file`
+        #
+        pattern = re.compile('(:smblink:`)(?P<context>(?!.+<).+)(`)')
+        result = pattern.search(contents)
+        if result:
+            sub_pattern = '(:smblink:`)(?P<context>(?!.+<).+)(`)'
+            sub_result  = result
+
+        #
+        # :smblink'`text <//path/to/file>`
+        #    
+        pattern = re.compile('(:smblink:`.+ <)(?P<context>.+)(>.*`)')
+        result = pattern.search(contents)
+        if result:
+            sub_pattern = '(:smblink:`.+ <)(?P<context>.+)(>.*`)'
+            sub_result  = result
+
+        #
+        # ..image:: //path/to/file
+        #    
+        pattern = re.compile('(.. image:: )(?P<context>.+)($)')
+        result = pattern.search(contents)
+        if result:
+            sub_pattern = '(.. image:: )(?P<context>.+)($)'
+            sub_result  = result            
+
+        #
+        # ..image:: //path/to/file
+        #    
+        pattern = re.compile('(.. figure:: )(?P<context>.+)($)')
+        result = pattern.search(contents)
+        if result:
+            sub_pattern = '(.. figure:: )(?P<context>.+)($)'
+            sub_result  = result    
+            
+        if len(sub_pattern):
+            
+            filename = sub_result.group('context')
+            
+            #print("\n\tmatch: ", sub_pattern) #Debug
+            #print("\tresult:", sub_result.group('context')) #Debug
+            #print("\texists:", os.path.join(drive_path,filename) ) #Debug
+            
+            if os.path.exists(os.path.join(drive_path,filename)):
+
+                if os.sep != '/': # Windowsの場合、エスケープの追加処理をしておかないと re.sub で bad escape が発生する
+                    sub_result = r'\1' + re.escape(os.path.join(drive_path,filename)) + r'\3'
+                    sub_result = sub_result.replace(r'\.','.') # ドット(.) はエスケープしたくない
+                    sub_result = sub_result.replace(r'\ ',' ') # スペース( ) はエスケープしたくない
+                else:
+                    sub_result = r'\1' + os.path.join(drive_path,filename) + r'\3'
+                
+                lines[line] = re.sub(sub_pattern, sub_result , lines[line])
+                
+                #print("\t" + lines[line]) #Debug
+
+    return lines
 
 
 # In[ ]:
@@ -267,7 +339,8 @@ def save_rst_files(target_path_list, save_path, target_link_name):
     
     for target in target_path_list:
 
-        _full_path = os.path.join(target['drive'], target['full_path'])    # windows network drive path
+        #_full_path = os.path.join(target['drive'], target['full_path'])    # windows network drive path
+        _full_path = target['full_path']
         
         if type(db) != bool: # shelve が存在すれば (bool値でなければ)
             if not is_updaed_on_DB(db,target['full_path'],target['timestamp']):
@@ -289,15 +362,16 @@ def save_rst_files(target_path_list, save_path, target_link_name):
                 #raise NameError('強制エラー')                         # for Debug
             except Exception as error:                               # ファイルが開けない場合は次のループにskipする
                 print("%s \nError が発生したため、このファイルの処理はキャンセルされました。" % error)
-                continue
+                continue                                             # 以降の処理をスキップして次のfor文を実行する
 
+            # rst ファイル化時の処理を行う
+            _lines = convert_smblink(_lines,target['drive_path'])    # smblink ファイルのパス置き換えを行う
 
             if target_link_name is not None:
                 #末尾にリンクを追記する
                 _lines.append("\n\n")
                 _lines.append(":smblink:`{LINK_NAME} <{LINK_PATH}>`".format(LINK_NAME=target_link_name, 
-                                                                            LINK_PATH=os.path.join(target['drive'],
-                                                                                                   target['path'])))
+                                                                            LINK_PATH=target['drive_path']))
                 
             _lines.append("\n")
 

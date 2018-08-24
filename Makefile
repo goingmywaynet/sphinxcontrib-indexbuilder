@@ -44,5 +44,5 @@ test-run:
 #
 # tests フォルダの初期化
 #
-test-clean:
+clean:
 	rm ./tests/tmp/*
