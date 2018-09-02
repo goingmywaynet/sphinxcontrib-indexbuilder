@@ -32,7 +32,9 @@ sdist:; python setup.py sdist
 #
 # unittest を走らせる
 #
-test:; python -m unittest -v
+test:
+	python -m unittest -v
+	cp ${SCRIPT_OUTPUT_DIR}/*.py ./tests/tmp/exts/
 
 #
 # tests フォルダで動作実験
@@ -45,4 +47,5 @@ test-run:
 # tests フォルダの初期化
 #
 clean:
-	rm ./tests/tmp/*
+	rm ./tests/tmp/*.rst
+	rm ./tests/tmp/*.db

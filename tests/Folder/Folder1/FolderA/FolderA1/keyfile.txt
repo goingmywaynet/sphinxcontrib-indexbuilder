@@ -11,4 +11,8 @@
 –ÚŽŸ2
 ==========
 
+.. tagfinder:: 
+  :file: tag.txt
+  :tag: this-is-tag-100
+  :path: ../FolderA2
 
