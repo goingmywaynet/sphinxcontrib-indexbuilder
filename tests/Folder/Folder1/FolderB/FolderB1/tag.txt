@@ -1,3 +1,3 @@
-THIS IS TAGFILE TITLE
-:tftag: this-is-tag-100,this-is-tag-101,this-is-tag-102
-:desc: THIS IS DESCRIPTION
+FolderB1
+:tftag: this-is-tag-101,this-is-tag-201
+:desc: this is Folder1/FolderB/FolderB1 tag

@@ -1,5 +1,5 @@
 =======================================
-これはキーファイルです
+FolderA1 キーファイル
 =======================================
 
 目次1
@@ -14,5 +14,5 @@
 .. tagfinder:: 
   :file: tag.txt
   :tag: this-is-tag-100
-  :path: ../FolderA2
+  :path: /Users/joey/DevelopBox/Python/sphinxcontrib-indexbuilder/tests/Folder/
 

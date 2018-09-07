@@ -93,6 +93,7 @@ class tagfinder(nodes.Admonition, nodes.Element):
 class TagFinderDirective(Directive):
     """ディレクティブクラス tagfinder : ノードクラスのインスタンスを作って返す
     API : http://code.nabla.net/doc/docutils/api/docutils/parsers/rst/docutils.parsers.rst.Directive.html#docutils.parsers.rst.Directive
+    nodesの使い方 : http://agateau.com/2015/docutils-snippets/
     """
     
     # this enables content in the directive
@@ -110,25 +111,77 @@ class TagFinderDirective(Directive):
                    'path': directives.unchanged }# :path: 探索するファイルパス directives.unchanged は textのまま dicに載せる
     # API: http://code.nabla.net/doc/docutils/api/docutils/parsers/rst/docutils.parsers.rst.directives.html#module-docutils.parsers.rst.directives 
 
-    def run(self):
-        #arg = self.arguments # arguments を取得するけど、option_spec と options を使うので不要
+    def run(self):        
         file = str(self.options['file']).split(',')
         tags = str(self.options['tag']).split(',')
         path = str(self.options['path']).split(',')
         
+        #print(file, tags, path)
+        print('\n')
+        print(".. tagfinder:: " + str(path) + " から " + str(tags) + "を検索します。")
+        
+        #lst = nodes.bullet_list() # list
+        
         if len(file) > 1 or len(path) >1:
             print("\n\t" + "tagfinder Directive ERROR\n" + "fileオプションとpathオプションは1つしか指定できません")
-        
-        print(file,tags,path)
 
         for tag in tags:
-            print(tag.strip())
-        
-        env = self.state.document.settings.env
+            path_list = findtags(str(file[0]).strip(), tag, str(path[0]).strip()) # tagファイル一覧
+            tag_list  = walk_path_list(path_list, tag)                            # 該当tag一覧 [{name:,desc:,path:},]
+            
+            #print("Directive > " + str(walk_path_list(path_list, tag)))
+            
+            #for target in tag_list:
+            #    item = nodes.list_item()
+            #    lst += item
+            #    item += nodes.paragraph(text="<a href=\""
+            #                      + convertToWSLStyle(target['path']) 
+            #                      + "\">" + target['name'] + "</a>" + target['desc'])
+                
+            header = ('フォルダ', '記事')
+            colwidths = (2, 5)
+            
+            table = nodes.table() #テーブル本体
+            
+            tgroup = nodes.tgroup(cols=len(header)) # 列定義 (2列)
+            table += tgroup                         # 列定義をテーブルに適用
+            
+            for colwidth in colwidths:
+                tgroup += nodes.colspec(colwidth=colwidth) # 幅指定した列を列定義に適用
+                
+            thead = nodes.thead()                   # ヘッダ行定義
+            tgroup += thead                         # 列定義にヘッダ行定義を割り当て
+            thead += self.create_table_row(header)  # ヘッダ行定義に中身の行を入れる
+            
+            tbody = nodes.tbody()                   # 中身行定義
+            tgroup += tbody                         # 列定義に中身行定義を割り当てていく
+            for target in tag_list:
+                target_raw = u"<a href=" + target['path'] + u">" + target['name'] + u"</a>"
+                
+                row   = nodes.row()                 # 行定義
 
-        ref_node = nodes.Text('title')
-
-        return [ref_node]
+                entry = nodes.entry()               # フォルダ列の中身
+                row   += entry
+                entry += nodes.raw('', target_raw, format='html')
+                
+                entry = nodes.entry()               # 記事列の中身
+                row   += entry
+                entry += nodes.paragraph(text=target['desc'])
+                
+                tbody += row                        # 行をtbody に適用
+                
+            
+        #return [lst]
+        return [table]
+    
+    def create_table_row(self, row_cells):
+        """table の thead()や tbody() 定義に割り当てる中身"""
+        row = nodes.row()
+        for cell in row_cells:
+            entry = nodes.entry()
+            row += entry
+            entry += nodes.paragraph(text=cell)
+        return row
 
 
 # オリジナル処理
@@ -313,68 +366,69 @@ def converted_match_pattern(pattern):
     return re.compile(tmppt) # 正規表現にコンパイル
 
 
-# FILENAME = 'tag.txt'
-# TAG = 'this-is-tag-?00'
-# PATH = './test'
+# In[ ]:
 
-# path_list = findtags(FILENAME, TAG, PATH)
 
-# path_list
+def walk_path_list(path_list, tag):
+    
+    res = [] # return 用
+    
+    for target in path_list:
+        """path_listの中身を評価して、タグファイルを開きながら、中身を評価していく"""
 
-# for target in path_list:
-#     """path_listの中身を評価して、リンクを追記していく"""
-#     
-#     full_path = os.path.join(target['drive'], target['full_path'])
-# 
-#     try:
-#         with open(full_path, mode='rt') as f:
-#             while True:
-#                 lines = f.readlines()
-#                 break
-#         for count, line in enumerate(lines):
-#             """:tftag:の探索
-#             count : 0開始の行数
-#             line  : 行の中身"""
-#             
-#             #print(str(count) + ">" + line)
-#             taglist = []  # 見つけた :tftag: と関連する :desc: タグを格納する 2次元配列 [ [name,desc], [name,desc], ..]
-#             
-#             if match_pattern(':tftag:*',line):
-#                 if re.search(converted_match_pattern(TAG), line):
-#                     """:tftag:が見つかったら次の:tftag: の前の行、もしくは行末まで取得する"""
-#                     
-#                     #print("match :" + line + " , name :" + target['name'])
-#                     #print("<a href=\"file:" + convertToWSLStyle(full_path) + u"\">" + target['name'] + u"</a>")
-#                     
-#                     tmp = []
-#                     flag = False
-#                     for sline in lines[count+1:]:
-#                         
-#                         #print(" >>" + sline)
-#                         
-#                         if match_pattern(':tftag:*',sline.replace('\n',' ')):
-#                             #print("match next pattern") 
-#                             break #次の:tftag:が見つかったらおわり
-#                             
-#                         if flag: tmp.append(sline.replace('\n',' ')) #すでにdescが見つかって居る場合は、次の:tftag:まで取得を継続
-#                             
-#                         if match_pattern(':desc:*', sline.replace('\n',' ')):
-#                             tmp.append(sline.replace(':desc:','').replace('\n',' '))
-#                             flag = True
-#                             
-#                             
-#                     print([target['name'],''.join(tmp)]) # [name , desc] の配列。 descは改行をスペースに置き換えてある
-#                     print("<a href=\"file:" 
-#                           + convertToWSLStyle(os.path.join(target['drive'], target['path'])) 
-#                           + "\">" + target['name'] + "</a>" + ''.join(tmp))
-#                     
-# 
-# 
-#     finally:
-#         f.close()
-#         print("--- file closed")
-# 
-# 
+        full_path = os.path.join(target['drive'], target['full_path'])
+
+        try:
+            with open(full_path, mode='rt') as f:
+                while True:
+                    lines = f.readlines()
+                    break
+            for count, line in enumerate(lines):
+                """:tftag:の探索
+                count : 0開始の行数
+                line  : 行の中身"""
+
+                #print(str(count) + ">" + line)
+                taglist = []  # 見つけた :tftag: と関連する :desc: タグを格納する 2次元配列 [ [name,desc], [name,desc], ..]
+
+                if match_pattern(':tftag:*',line):
+                    if re.search(converted_match_pattern(tag), line):
+                        """:tftag:が見つかったら次の:tftag: の前の行、もしくは行末まで取得する"""
+
+                        #print("match :" + line + " , name :" + target['name'])
+                        #print("<a href=\"file:" + convertToWSLStyle(full_path) + u"\">" + target['name'] + u"</a>")
+
+                        tmp = []
+                        flag = False
+                        for sline in lines[count+1:]:
+
+                            #print(" >>" + sline)
+
+                            if match_pattern(':tftag:*',sline.replace('\n',' ')):
+                                #print("match next pattern") 
+                                break #次の:tftag:が見つかったらおわり
+
+                            if flag: tmp.append(sline.replace('\n',' ')) #すでにdescが見つかって居る場合は、次の:tftag:まで取得を継続
+
+                            if match_pattern(':desc:*', sline.replace('\n',' ')):
+                                tmp.append(sline.replace(':desc:','').replace('\n',' '))
+                                flag = True
+
+                        #print([target['name'],''.join(tmp)]) # [name , desc] の配列。 descは改行をスペースに置き換えてある
+                        #print("<a href=\"file:" 
+                        #      + convertToWSLStyle(os.path.join(target['drive'], target['path'])) 
+                        #      + "\">" + target['name'] + "</a>" + ''.join(tmp))
+                        
+                        res.append({'name': target['name'], #ここでいうnameはフォルダ名のこと
+                                    'desc': ''.join(tmp),
+                                    'path': "file:" + convertToWSLStyle(os.path.join(target['drive'], target['path']))})
+
+        finally:
+            f.close()
+            #print("--- file closed")
+
+    return res
+
 
 # In[ ]:
 
@@ -382,7 +436,7 @@ def converted_match_pattern(pattern):
 def setup(app):
     """sphinx-contrib 用 setup 関数"""
     #app.add_config_value('todo_include_todos', False, 'html')
-    print("RUN TagFinder setup()")
+    print("run tagfinder setup()")
 
     #app.add_node(tagfinder,
     #            html=(visit_tag_node, depart_tag_node)) #フェーズ3までで終わるため visiter不要
@@ -398,3 +452,11 @@ def setup(app):
 
     return {'version': '0.1'}   # identifies the version of our extension
 
+
+# FILENAME = 'tag.txt'
+# TAG = 'this-is-tag-?00'
+# PATH = './test'
+
+# path_list = findtags(FILENAME, TAG, PATH)
+
+# path_list
