@@ -46,6 +46,7 @@ Options:
 
 
 import os.path                      # OS処理
+from pathlib import Path            # OS依存しないファイルパス処理
 from chardet.universaldetector import UniversalDetector # 文字エンコード自動判定
 from collections import OrderedDict # 順序付き辞書(dict)
 from docopt import docopt           # コマンド処理時の引数の定義と解釈
@@ -60,7 +61,7 @@ import re                           # 正規表現処理
 MYVERSION = '0.1 20180723'  # このScriptのVersion
 
 
-# In[2]:
+# In[ ]:
 
 
 def is_updaed_on_DB(db, full_path, timestamp):
@@ -84,16 +85,19 @@ def is_updaed_on_DB(db, full_path, timestamp):
         return True       #永続化されたdb内にファイルが存在しない場合はTrueを返す        
 
 
-# In[3]:
+# In[ ]:
 
 
 def open_shelve(dbfilename):
     """永続化されたshelveを開き、インスタンスを返す
     dbfilename : 永続化されたファイル名"""
     
-    if os.path.exists(dbfilename+".db") or os.path.exists(dbfilename+".dat"): #dbfileが存在した場合 versionにより.db か .dat/.dir/.bak がある
+    _db_file = Path(str(dbfilename) + '.db')
+    _dat_file = Path(str(dbfilename) + '.dat')
+        
+    if _db_file.exists() or _dat_file.exists(): #dbfileが存在した場合 versionにより.db か .dat/.dir/.bak がある
         try: 
-            db = shelve.open(dbfilename,flag='r') 
+            db = shelve.open(str(dbfilename.resolve()),flag='r') 
         except:
             return False
         else:
@@ -103,7 +107,7 @@ def open_shelve(dbfilename):
         return True               #dbfile が存在しない場合は一律Trueを返す        
 
 
-# In[4]:
+# In[ ]:
 
 
 def write_shelve(filename, target_path_list):
@@ -116,7 +120,7 @@ def write_shelve(filename, target_path_list):
             db[dic['full_path']] = dic
 
 
-# In[5]:
+# In[ ]:
 
 
 def isContain(filelist, keywoard):
@@ -126,7 +130,7 @@ def isContain(filelist, keywoard):
             return True
 
 
-# In[6]:
+# In[61]:
 
 
 def detect_file_encode(file):
@@ -151,7 +155,7 @@ def detect_file_encode(file):
     return detector.result
 
 
-# In[7]:
+# In[ ]:
 
 
 def returnHeading(title,depth=1):
@@ -166,7 +170,7 @@ def returnHeading(title,depth=1):
     return headingTitle + toctreeDirective
 
 
-# In[8]:
+# In[ ]:
 
 
 def create_index_file(root_path, target_path_list, headline_depth):
@@ -199,7 +203,7 @@ def create_index_file(root_path, target_path_list, headline_depth):
     return return_
 
 
-# In[9]:
+# In[ ]:
 
 
 def insert_header(index_txt, header_file): 
@@ -225,7 +229,7 @@ def insert_header(index_txt, header_file):
     return header + index_txt
 
 
-# In[10]:
+# In[ ]:
 
 
 def walk_path_to_target_path_list(search_root_path, target_file_name):
@@ -258,10 +262,52 @@ def walk_path_to_target_path_list(search_root_path, target_file_name):
     return sorted(_target_path_list,key=lambda my_dict: my_dict['path'])
 
 
-# In[99]:
+# In[239]:
 
 
-def convert_smblink(lines, drive_path):
+def get_absolue_path(relative, anchor):
+    """
+    relative: フォルダへの相対パス
+    anchor: 相対パス検索の起点
+    
+    情報からファイルを探索する。存在する場合は当該ファイルの絶対パスを返す。
+    存在しない場合は、もともとのtargetを返す"""
+    
+    Pr = relative
+    Pa = anchor
+    
+    if not isinstance(Pr, Path): #libpath の Path オブジェクトではない場合は Pathオブジェクトとして初期化する
+        if os.sep != '/': 
+            Pr = Path(str(relative).replace(os.sep, '/')) # windows 対策
+        else : Pr = Path(relative)
+    
+    if not isinstance(anchor, Path): #libpath の Path オブジェクトではない場合は Pathオブジェクトとして初期化する
+        if os.sep != '/': 
+            Pa = Path(str(anchor).replace(os.sep, '/')) # windows 対策
+        else : Pa = Path(anchor)
+        
+    if Pr.exists(): 
+        
+        return Pr.absolute() # relative で存在確認できればそのまま絶対パスを返す
+    
+    elif Path('/' + str(Pr)).exists(): return Path('/' + str(Pr)).absolute() # windows 対策 先頭の '\'が抜けてる場合に追加して処理する
+    
+    if not Pa.exists(): Pa = Path('/' + str(Pa)) # windows 対策 先頭の '\'が抜けてる場合に追加して処理する
+        
+    if (Pa / Pr).exists(): return (Pa / Pr).resolve().absolute()
+    
+    if (Pa / '..' / Pr).exists(): return (Pa / '..' / Pr).resolve().absolute()
+    
+    print("\n\tERROR: " + str(anchor) + " にある " + str(relative) + " ファイルはみつかりませんでした。")
+    print("\tとりあえず そのまま にしときます。\n")
+    
+    return relative
+
+
+# In[240]:
+
+
+def convert_smblink(lines, anchor):
     """smblink ファイルのパス置き換えを行う"""
     
     for line, contents in enumerate(lines):
@@ -269,22 +315,24 @@ def convert_smblink(lines, drive_path):
         sub_pattern = ''
         
         #
-        # :smblink'`//path/to/file`
+        # :smblink:`//path/to/file`
         #
         pattern = re.compile('(:smblink:`)(?P<context>(?!.+<).+)(`)')
         result = pattern.search(contents)
         if result:
-            sub_pattern = '(:smblink:`)(?P<context>(?!.+<).+)(`)'
-            sub_result  = result
+            sub_pattern = '(:smblink:`)(?P<context>(?!.+<).+)(`)'        #置き換えパターン
+            relative_path = result.group('context')                      #検出した相対パス
+            absolute_path = repr(str(get_absolue_path(relative_path, anchor)))[1:-1] #置き換え済み絶対パス
 
         #
-        # :smblink'`text <//path/to/file>`
+        # :smblink:`text <//path/to/file>`
         #    
         pattern = re.compile('(:smblink:`.+ <)(?P<context>.+)(>.*`)')
         result = pattern.search(contents)
         if result:
-            sub_pattern = '(:smblink:`.+ <)(?P<context>.+)(>.*`)'
-            sub_result  = result
+            sub_pattern = '(:smblink:`.+ <)(?P<context>.+)(>.*`)'        #置き換えパターン
+            relative_path = result.group('context')                      #検出した相対パス
+            absolute_path = repr(str(get_absolue_path(relative_path, anchor)))[1:-1] #置き換え済み絶対パス
 
         #
         # ..image:: //path/to/file
@@ -292,38 +340,28 @@ def convert_smblink(lines, drive_path):
         pattern = re.compile('(.. image:: )(?P<context>.+)($)')
         result = pattern.search(contents)
         if result:
-            sub_pattern = '(.. image:: )(?P<context>.+)($)'
-            sub_result  = result            
+            sub_pattern = '(.. image:: )(?P<context>.+)($)'              #置き換えパターン
+            relative_path = result.group('context')                      #検出した相対パス
+            absolute_path = os.sep + repr(str(get_absolue_path(relative_path, anchor)))[1:-1] #置き換え済み絶対パス
 
         #
         # ..image:: //path/to/file
         #    
         pattern = re.compile('(.. figure:: )(?P<context>.+)($)')
-        result = pattern.search(contents)
+        result = pattern.search(contents)        
         if result:
-            sub_pattern = '(.. figure:: )(?P<context>.+)($)'
-            sub_result  = result    
+            sub_pattern = '(.. figure:: )(?P<context>.+)($)'             #置き換えパターン
+            relative_path = result.group('context')                      #検出した相対パス
+            absolute_path = os.sep + repr(str(get_absolue_path(relative_path, anchor)))[1:-1] #置き換え済み絶対パス
             
         if len(sub_pattern):
+                        
+            print("\n\tmatch: ", sub_pattern) #Debug
+            print("\trelative_path: ",str(relative_path)) #Debug
+            print("\tabsolute_path: ",str(absolute_path)) #Debug
             
-            filename = sub_result.group('context')
-            
-            #print("\n\tmatch: ", sub_pattern) #Debug
-            #print("\tresult:", sub_result.group('context')) #Debug
-            #print("\texists:", os.path.join(drive_path,filename) ) #Debug
-            
-            if os.path.exists(os.path.join(drive_path,filename)):
-
-                if os.sep != '/': # Windowsの場合、エスケープの追加処理をしておかないと re.sub で bad escape が発生する
-                    sub_result = r'\1' + re.escape(os.path.join(drive_path,filename)) + r'\3'
-                    sub_result = sub_result.replace(r'\.','.') # ドット(.) はエスケープしたくない
-                    sub_result = sub_result.replace(r'\ ',' ') # スペース( ) はエスケープしたくない
-                else:
-                    sub_result = r'\1' + os.path.join(drive_path,filename) + r'\3'
-                
-                lines[line] = re.sub(sub_pattern, sub_result , lines[line])
-                
-                #print("\t" + lines[line]) #Debug
+            sub_result = r'\1' + absolute_path + r'\3'
+            lines[line] = re.sub(sub_pattern, sub_result , lines[line])
 
     return lines
 
@@ -333,30 +371,51 @@ def convert_smblink(lines, drive_path):
 
 def save_rst_files(target_path_list, save_path, target_link_name):
     """ターゲットファイルを rst ファイル化して別名保存する
-    ただし、 is_updated_on_DB 関数で、 永続化された target_path_list とtimestamp比較して新しいものだけ保存する"""
+    ただし、 is_updated_on_DB 関数で、 永続化された target_path_list とtimestamp比較して新しいものだけ保存する
+    PathLib版処理に入れ替え
     
-    db = open_shelve(os.path.join(save_path,"pathList")) # shelveを開く
+    引数
+    target_path_list : [{
+                            'drive': _drive,                                 # windows 共有ディレクトリのドライブ名
+                            'path': _path,                                   # target file を含まない path
+                            'full_path': os.path.join(_drive, _path, target_file_name),   # target file を含む path
+                            'name': os.path.basename(_path),                 # 最終ディレクトリ名を生成対象ファイル名に
+                            'depth': _path.count(os.sep),                    # 階層の深さを
+                            'timestamp': os.stat(os.path.join(_drive, _path, target_file_name)).st_mtime, # TimeStamp
+                            'drive_path': os.path.join(_drive, _path)   # drive を含む path
+                            },]
+    save_path : 保存先パス
+    target_link_name: "文字列"
+    """
+    _save_path = Path(save_path) # 保存先パス定義
+    
+    #db = open_shelve(os.path.join(save_path,"pathList")) # shelveを開く
+    db = open_shelve(_save_path / 'pathList') # shelveを開く
     
     for target in target_path_list:
 
-        #_full_path = os.path.join(target['drive'], target['full_path'])    # windows network drive path
-        _full_path = target['full_path']
+        #_full_path = target['full_path']
+        
+        # PathLib版処理
+        _full_path = Path(target['full_path']).resolve() # 絶対パス化
+        _target_anchor = _full_path.parent.resolve()     # 指定ディレクトリ絶対パス
+        
         
         if type(db) != bool: # shelve が存在すれば (bool値でなければ)
             if not is_updaed_on_DB(db,target['full_path'],target['timestamp']):
                 continue # 前回と比較して、ファイルが更新されていない場合は、このファイルを更新しない
         
-        if os.path.exists(_full_path): 
+        if _full_path.exists(): 
             
             #for Debug
             #print("Save %s" % _full_path)
 
             #target_path_list の各ファイルを開いていく
-            _encode = detect_file_encode(_full_path)["encoding"]     # ファイルの文字コードを自動判定する
+            _encode = detect_file_encode(str(_full_path))["encoding"]# ファイルの文字コードを自動判定する
             if _encode == "SHIFT_JIS": _encode = "cp932"             # 自動判定で SHIFT_JIS になる場合は予防的に上位互換の cp932 として扱う
                 
             try:                                                     # ファイルを開く処理は文字コード扱うので例外を予測しておく
-                _file = open(_full_path,mode='r',encoding=_encode)                                
+                _file = _full_path.open(mode='r',encoding=_encode)
                 _lines = _file.readlines()
                 _file.close()
                 #raise NameError('強制エラー')                         # for Debug
@@ -364,18 +423,32 @@ def save_rst_files(target_path_list, save_path, target_link_name):
                 print("%s \nError が発生したため、このファイルの処理はキャンセルされました。" % error)
                 continue                                             # 以降の処理をスキップして次のfor文を実行する
 
+                
+            #print("FILENAME IS : " + str(_full_path)) #Debug
+            #print(_lines) #Debug
+                
             # rst ファイル化時の処理を行う
-            _lines = convert_smblink(_lines,target['drive_path'])    # smblink ファイルのパス置き換えを行う
+            _lines = convert_smblink(_lines,_target_anchor)          # smblink ファイルのパス置き換えを行う
+
+            #print("\nFILENAME IS : " + str(_full_path)) #Debug
+            #print(_lines) #Debug
+
 
             if target_link_name is not None:
                 #末尾にリンクを追記する
                 _lines.append("\n\n")
                 _lines.append(":smblink:`{LINK_NAME} <{LINK_PATH}>`".format(LINK_NAME=target_link_name, 
-                                                                            LINK_PATH=target['drive_path']))
+                                                                            LINK_PATH=str(_target_anchor)))
                 
             _lines.append("\n")
 
-            save_file = open(os.path.join(save_path,str(target['name']) + ".rst"), mode='w', encoding='utf-8')
+            _filename = str(target['name'])+'.rst'
+            _save_file = _save_path / _filename
+            #print("_save_file is " + str(_save_file.resolve())) #Debug
+            
+            #save_file = open(os.path.join(save_path,str(target['name']) + ".rst"), mode='w', encoding='utf-8')
+            save_file = _save_file.open(mode='w', encoding='utf-8')
+            
             for _line in _lines:
                 save_file.write(_line)
             save_file.close()
@@ -446,44 +519,48 @@ if __name__ == '__main__':
 
 # # デバッグ用
 
-# # Debug用
-# 
-# HEADLINE_DEPTH = 2 # index.rst でタイトル表示する階層数 
-# TARGET_FILE_NAME = 'keyfile.txt' # 探索するファイル名 
-# TARGET_PATH = r'./tests/Folder/Folder1' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
-# SAVE_PATH   = r'./tests/tmp'
-# TARGET_LINK_NAME = 'Contents Folder'
-# HEADER_FILE = 'header.rst'
-# 
-# # 検索先定義がない場合は終了する
-# if TARGET_PATH is None or not os.path.exists(TARGET_PATH):
-#     print('検索先が見つからなかった為、終了します。')
-#     import sys
-#     sys.exit(1) 
-# 
-# # Windows のセパレータ'\\'への対応として、セパレータが '/' ではない場合は、 '/' を os.sep (OSのデフォルトセパレータ) に置き換える
-# if os.sep != '/':
-#     root_path = TARGET_PATH.replace('/', os.sep)
-#     save_path = SAVE_PATH.replace('/',os.sep)
-#     print('Windows用に / から ' + os.sep +  ' へセパレータの置き換え実施しました。')
-# else:
-#     root_path = TARGET_PATH
-#     save_path = SAVE_PATH
-# 
-# 
-# # ディレクトリを走査して、対象ファイルのリストを生成する。
-# target_path_list = walk_path_to_target_path_list(root_path, TARGET_FILE_NAME)
-# 
-# # index.rst ファイルを書き出す
-# index_txt = create_index_file(root_path, target_path_list, HEADLINE_DEPTH)
-# if HEADER_FILE is not None: index_txt = insert_header(index_txt, HEADER_FILE) #ヘッダファイルを挿入する
-# file = open(os.path.join(save_path,"index.rst"), mode='w', encoding='utf-8')
-# file.write("".join(index_txt))
-# file.close()
-# 
-# 
-# # ターゲットファイルを rst ファイル化
-# save_rst_files(target_path_list, save_path, TARGET_LINK_NAME)
-# 
-# # target_path_list を永続化
-# write_shelve(os.path.join(save_path,"pathList"),target_path_list)
+# In[ ]:
+
+
+# Debug用
+
+HEADLINE_DEPTH = 2 # index.rst でタイトル表示する階層数 
+TARGET_FILE_NAME = 'keyfile.txt' # 探索するファイル名 
+TARGET_PATH = r'./tests/Folder/Folder1' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
+SAVE_PATH   = r'./tests/tmp'
+TARGET_LINK_NAME = 'Contents Folder'
+HEADER_FILE = 'header.rst'
+
+# 検索先定義がない場合は終了する
+if TARGET_PATH is None or not os.path.exists(TARGET_PATH):
+    print('検索先が見つからなかった為、終了します。')
+    import sys
+    sys.exit(1) 
+
+# Windows のセパレータ'\\'への対応として、セパレータが '/' ではない場合は、 '/' を os.sep (OSのデフォルトセパレータ) に置き換える
+if os.sep != '/':
+    root_path = TARGET_PATH.replace('/', os.sep)
+    save_path = SAVE_PATH.replace('/',os.sep)
+    print('Windows用に / から ' + os.sep +  ' へセパレータの置き換え実施しました。')
+else:
+    root_path = TARGET_PATH
+    save_path = SAVE_PATH
+
+
+# ディレクトリを走査して、対象ファイルのリストを生成する。
+target_path_list = walk_path_to_target_path_list(root_path, TARGET_FILE_NAME)
+
+# index.rst ファイルを書き出す
+index_txt = create_index_file(root_path, target_path_list, HEADLINE_DEPTH)
+if HEADER_FILE is not None: index_txt = insert_header(index_txt, HEADER_FILE) #ヘッダファイルを挿入する
+file = open(os.path.join(save_path,"index.rst"), mode='w', encoding='utf-8')
+file.write("".join(index_txt))
+file.close()
+
+
+# ターゲットファイルを rst ファイル化
+save_rst_files(target_path_list, save_path, TARGET_LINK_NAME)
+
+# target_path_list を永続化
+#write_shelve(os.path.join(save_path,"pathList"),target_path_list)
+

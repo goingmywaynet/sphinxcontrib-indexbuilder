@@ -14,8 +14,8 @@ FolderA1 キーファイル
 .. tagfinder:: 
   :file: tag.txt
   :tag: this-is-tag-100
-  :path: /Users/joey/DevelopBox/Python/sphinxcontrib-indexbuilder/tests/Folder/
+  :path: ../Folder/
 
 
 
-:smblink:`hoge <./tests/Folder/Folder1/FolderA/FolderA1>`
+:smblink:`Contents Folder </Users/joey/Documents/DevelopBox/Python/sphinxcontrib-indexbuilder/tests/Folder/Folder1/FolderA/FolderA1>`

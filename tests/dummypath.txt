@@ -1,0 +1,2 @@
+:smblink:`\\path\to\file and space\file.hoge`
+:smblink:`\\path\日本語 半角スペース\日本語　全角スペース\file.hoge`

@@ -14,4 +14,4 @@
 
 
 
-:smblink:`hoge <./tests/Folder/Folder1/FolderB/FolderB1/FolderB11>`
+:smblink:`Contents Folder </Users/joey/Documents/DevelopBox/Python/sphinxcontrib-indexbuilder/tests/Folder/Folder1/FolderB/FolderB1/FolderB11>`

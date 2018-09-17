@@ -11,4 +11,8 @@
 –ÚŽŸ2
 ==========
 
+:smblink:`\\vmware-host\Shared Folders\ShareFolder\sphinxcontrib-indexbuilder\tests\Folder\Folder1`
+
+.. image:: \\vmware-host\Shared Folders\ShareFolder\sphinxcontrib-indexbuilder\tests\Folder\Folder1\FolderD\FolderD1\FolderD11\test.jpg
+
 

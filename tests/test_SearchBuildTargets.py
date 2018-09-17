@@ -2,65 +2,103 @@
 import unittest as ut
 import os
 from indexbuilder import SearchBuildTargets
+from pathlib import Path
 
 def Lpath(path):
-  """Localized Path : Windows と linux のセパレータ差異対応
-  Windows のセパレータ'\\'への対応として、セパレータが '/' ではない場合は、 '/' を os.sep (OSのデフォルトセパレータ) に置き換える"""
-  if os.sep != '/':
-    return path.replace('/', os.sep)
-  else:
-    return path
+    """Localized Path : Windows と linux のセパレータ差異対応
+    Windows のセパレータ'\\'への対応として、セパレータが '/' ではない場合は、 '/' を os.sep (OSのデフォルトセパレータ) に置き換える"""
+    if os.sep != '/':
+        return path.replace('/', os.sep)
+    else:
+        return path
 
 class SearchBuildTargetsTest(ut.TestCase):
-  """SearchBuildTargets テスト"""
+    """SearchBuildTargets テスト"""
 
-  def test_convert_smblink(self):
-    """smblinkのpath変換"""
+    def test_get_absolue_path(self):
+        """pathlib 処理"""
 
-    tasklist = [
-      {'lines': [ "" ,":smblink:`linkedfile.txt`" ,""], #試験ファイルを見つける
-      'drive_path': "./tests/Folder/Folder1/FolderD/FolderD1/FolderD11",
-      'ans': [ "" ,":smblink:`./tests/Folder/Folder1/FolderD/FolderD1/FolderD11/linkedfile.txt`" ,""]}\
+        currentP = Path('.')
 
-      ,{'lines': [ "" ,":smblink:`./notfound.txt`" ,""], #存在しないファイルは無視する
-      'drive_path': "./tests/Folder/Folder1/FolderD/FolderD1/FolderD11",
-      'ans': [ "" ,":smblink:`./notfound.txt`" ,""]}\
+        tasklist = [
+          {'relative': 'README.rst' #試験ファイルを見つける (str ,str)
+          ,'anchor': str(currentP.absolute())
+          ,'ans': str( (currentP / Path('README.rst')).absolute() )}
 
-      ,{'lines': [ "" ,":smblink:`./linkedfile.txt`" ,""], # ./が入る書き方も対応する
-      'drive_path': "./tests/Folder/Folder1/FolderD/FolderD1/FolderD11",
-      'ans': [ "" ,":smblink:`./tests/Folder/Folder1/FolderD/FolderD1/FolderD11/./linkedfile.txt`" ,""]}\
+          ,{'relative': 'README.rst' #試験ファイルを見つける (str , Path)
+          ,'anchor': currentP
+          ,'ans': str( (currentP / Path('README.rst')).absolute() )}
 
-      ,{'lines': [ "hogehoge" ,"fugafuga :smblink:`linkedfile.txt` nyaronya" ,""], #他のことが書いてある場合も可能
-      'drive_path': "./tests/Folder/Folder1/FolderD/FolderD1/FolderD11",
-      'ans': [ "hogehoge" ,"fugafuga :smblink:`./tests/Folder/Folder1/FolderD/FolderD1/FolderD11/linkedfile.txt` nyaronya" ,""]}\
+          ,{'relative': Path('README.rst') #試験ファイルを見つける (Path , Path)
+          ,'anchor': currentP
+          ,'ans': str( (currentP / Path('README.rst')).absolute() )}
 
-      ,{'lines': [ "hogehoge" ,"fugafuga :smblink:`linkedfile.txt <linkedfile.txt>` nyaronya" ,""], # :smblink:`text <file>`の書き方
-      'drive_path': "./tests/Folder/Folder1/FolderD/FolderD1/FolderD11",
-      'ans': [ "hogehoge" ,"fugafuga :smblink:`linkedfile.txt <./tests/Folder/Folder1/FolderD/FolderD1/FolderD11/linkedfile.txt>` nyaronya" ,""]}\
+          ,{'relative': Path('README.rst') #試験ファイルを見つける (Path , str)
+          ,'anchor': str(currentP.absolute())
+          ,'ans': str( (currentP / Path('README.rst')).absolute() )}
 
-      ,{'lines': [ "hogehoge" ,".. image:: test.jpg" ,""], #image
-      'drive_path': "./tests/Folder/Folder1/FolderD/FolderD1/FolderD11",
-      'ans': [ "hogehoge" ,".. image:: ./tests/Folder/Folder1/FolderD/FolderD1/FolderD11/test.jpg" ,""]}\
+          ,{'relative': 'NOTFOUND' #試験ファイルがない (str , str)
+          ,'anchor': str(currentP.absolute())
+          ,'ans': 'NOTFOUND'}
 
-      ,{'lines': [ "hogehoge" ,"this is .. image:: test.jpg" ,""], #行内image
-      'drive_path': "./tests/Folder/Folder1/FolderD/FolderD1/FolderD11",
-      'ans': [ "hogehoge" ,"this is .. image:: ./tests/Folder/Folder1/FolderD/FolderD1/FolderD11/test.jpg" ,""]}\
+          ,{'relative': './tests/tmp' #階層移動(下方向)
+          ,'anchor': str(currentP.absolute())
+          ,'ans': str( (currentP / Path('./tests/tmp')).absolute() )}
+         ]
 
-      ,{'lines': [ "hogehoge" ,".. figure:: test.jpg" ,""], #figure
-      'drive_path': "./tests/Folder/Folder1/FolderD/FolderD1/FolderD11",
-      'ans': [ "hogehoge" ,".. figure:: ./tests/Folder/Folder1/FolderD/FolderD1/FolderD11/test.jpg" ,""]}\
+        for task in tasklist:
 
-      ,{'lines': [ "hogehoge" ,"this is .. figure:: test.jpg" ,""], #行内figure
-      'drive_path': "./tests/Folder/Folder1/FolderD/FolderD1/FolderD11",
-      'ans': [ "hogehoge" ,"this is .. figure:: ./tests/Folder/Folder1/FolderD/FolderD1/FolderD11/test.jpg" ,""]}\
-      ]
+            _ans = task['ans']
+            _relative = task['relative']
+            _anchor = task['anchor']
 
-    for task in tasklist:
+            self.assertEqual(_ans, str(SearchBuildTargets.get_absolue_path(_relative,_anchor)))
 
-      _ans = [ Lpath(i) for i in task['ans'] ]
-      _drive_path = Lpath(task['drive_path'])
-      _lines = [ Lpath(i) for i in task['lines'] ]
-      
-      self.assertEqual(_ans, SearchBuildTargets.convert_smblink(_lines,_drive_path))
+    def test_get_absolue_path_windows(self):
+        """pathlib 処理 windows localhost の network name に対するチェック"""
+
+        if os.sep != '/':
+
+            print("Windows 環境試験")
+
+            currentP = r'\\localhost\Public'
+
+            tasklist = [
+              {'relative': 'Downloads' #試験ファイルを見つける (str ,str)
+              ,'anchor': currentP
+              ,'ans': str( (Path(currentP) / Path('Downloads')).absolute() )}
+
+              ,{'relative': 'Pictures\Sample Pictures\Koala.jpg' #試験ファイルを見つける (str ,str)
+              ,'anchor': currentP
+              ,'ans': str( (Path(currentP) / Path('Pictures/Sample Pictures/Koala.jpg')).absolute() )}
+
+              ,{'relative': r'\\localhost\Public\Pictures\Sample Pictures\Koala.jpg' #試験ファイルを見つける (RawStr ,str)
+              ,'anchor': ''
+              ,'ans': str( (Path(currentP) / Path('Pictures/Sample Pictures/Koala.jpg')).absolute() )}
+
+              ,{'relative': '\\localhost\Public\Pictures\Sample Pictures\Koala.jpg' #試験ファイルを見つける (str ,str)
+              ,'anchor': ''
+              ,'ans': str( (Path(currentP) / Path('Pictures/Sample Pictures/Koala.jpg')).absolute() )}
+
+              ,{'relative': 'Sample Pictures\Koala.jpg' #試験ファイルを見つける (str ,str)
+              ,'anchor': '\\localhost\Public\Pictures'
+              ,'ans': str( (Path(currentP) / Path('Pictures/Sample Pictures/Koala.jpg')).absolute() )}
+
+              ,{'relative': 'Sample Pictures\Koala.jpg' #試験ファイルを見つける (str ,str)
+              ,'anchor': r'\\localhost\Public\Pictures\\'
+              ,'ans': str( (Path(currentP) / Path('Pictures/Sample Pictures/Koala.jpg')).absolute() )}
+            ]
+
+            for task in tasklist:
+
+                _ans = task['ans']
+                _relative = task['relative']
+                _anchor = task['anchor']
+
+                self.assertEqual(_ans, str(SearchBuildTargets.get_absolue_path(_relative,_anchor)))
+
+
+
+
 
 
