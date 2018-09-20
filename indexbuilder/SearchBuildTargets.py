@@ -342,23 +342,39 @@ def convert_smblink(lines, anchor):
         if result:
             sub_pattern = '(.. image:: )(?P<context>.+)($)'              #置き換えパターン
             relative_path = result.group('context')                      #検出した相対パス
-            absolute_path = os.sep + repr(str(get_absolue_path(relative_path, anchor)))[1:-1] #置き換え済み絶対パス
+            if os.sep == '/':
+                absolute_path = os.sep + repr(str(get_absolue_path(relative_path, anchor)))[1:-1] #置き換え済み絶対パス
+            else:
+                if isinstance(get_absolue_path(relative_path, anchor), Path):
+                    absolute_path = '/' + str(get_absolue_path(relative_path, anchor).as_posix()).replace(' ','\\ ')  #置き換え済み絶対パス
+                else:
+                    absolute_path = '/' + str(get_absolue_path(relative_path, anchor)).replace(' ','\\ ')  #置き換え済み絶対パス
+                # IE で ネットワークドライブ越しに image を表示するため posix パスと space を適宜置き換える
+                # 例 ///network/drive\ to/image.jpg
+                # \は / に置き換え。ネットワークドライブの先頭は /// でスラッシュ三つ。半角スペースは\ に置き換える
+                # ToDo: 半角スペース以外の特殊文字や全角スペースが入ると失敗するので対策が必要。たぶん独自ディレクティブ化したほうが早い
 
         #
-        # ..image:: //path/to/file
+        # ..figure:: //path/to/file
         #    
         pattern = re.compile('(.. figure:: )(?P<context>.+)($)')
         result = pattern.search(contents)        
         if result:
             sub_pattern = '(.. figure:: )(?P<context>.+)($)'             #置き換えパターン
             relative_path = result.group('context')                      #検出した相対パス
-            absolute_path = os.sep + repr(str(get_absolue_path(relative_path, anchor)))[1:-1] #置き換え済み絶対パス
+            if os.sep == '/':
+                absolute_path = os.sep + repr(str(get_absolue_path(relative_path, anchor)))[1:-1] #置き換え済み絶対パス
+            else:
+                if isinstance(get_absolue_path(relative_path, anchor), Path):
+                    absolute_path = '/' + str(get_absolue_path(relative_path, anchor).as_posix()).replace(' ','\\ ')  #置き換え済み絶対パス
+                else:
+                    absolute_path = '/' + str(get_absolue_path(relative_path, anchor)).replace(' ','\\ ')  #置き換え済み絶対パス
             
         if len(sub_pattern):
                         
-            print("\n\tmatch: ", sub_pattern) #Debug
-            print("\trelative_path: ",str(relative_path)) #Debug
-            print("\tabsolute_path: ",str(absolute_path)) #Debug
+            #print("\n\tmatch: ", sub_pattern) #Debug
+            #print("\trelative_path: ",str(relative_path)) #Debug
+            #print("\tabsolute_path: ",str(absolute_path)) #Debug
             
             sub_result = r'\1' + absolute_path + r'\3'
             lines[line] = re.sub(sub_pattern, sub_result , lines[line])
