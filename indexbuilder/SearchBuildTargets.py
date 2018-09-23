@@ -224,7 +224,9 @@ def insert_header(index_txt, header_file):
             header.append(_line.replace(':builddate:',datetime.datetime.today().strftime("%Y/%m/%d %H:%M")))
     except Exception as error:                               # ファイルが開けない場合は次のループにskipする
         print("%s \nError が発生したため、このファイルの処理はキャンセルされました。" % error)
-        header=""
+        import traceback
+        traceback.print_exc()
+        header=""                                            # header 登録はなし
 
     return header + index_txt
 
@@ -285,21 +287,27 @@ def get_absolue_path(relative, anchor):
         if os.sep != '/': 
             Pa = Path(str(anchor).replace(os.sep, '/')) # windows 対策
         else : Pa = Path(anchor)
-        
-    if Pr.exists(): 
-        
-        return Pr.absolute() # relative で存在確認できればそのまま絶対パスを返す
-    
-    elif Path('/' + str(Pr)).exists(): return Path('/' + str(Pr)).absolute() # windows 対策 先頭の '\'が抜けてる場合に追加して処理する
-    
-    if not Pa.exists(): Pa = Path('/' + str(Pa)) # windows 対策 先頭の '\'が抜けてる場合に追加して処理する
-        
-    if (Pa / Pr).exists(): return (Pa / Pr).resolve().absolute()
-    
-    if (Pa / '..' / Pr).exists(): return (Pa / '..' / Pr).resolve().absolute()
-    
-    print("\n\tERROR: " + str(anchor) + " にある " + str(relative) + " ファイルはみつかりませんでした。")
-    print("\tとりあえず そのまま にしときます。\n")
+            
+    try:
+        if Pr.exists(): 
+
+            return Pr.absolute() # relative で存在確認できればそのまま絶対パスを返す
+
+        elif Path('/' + str(Pr)).exists(): return Path('/' + str(Pr)).absolute() # windows 対策 先頭の '\'が抜けてる場合に追加して処理する
+
+        if not Pa.exists(): Pa = Path('/' + str(Pa)) # windows 対策 先頭の '\'が抜けてる場合に追加して処理する
+
+        if (Pa / Pr).exists(): return (Pa / Pr).resolve().absolute()
+
+        if (Pa / '..' / Pr).exists(): return (Pa / '..' / Pr).resolve().absolute()
+
+        print("\n\tERROR: " + str(anchor) + " にある " + str(relative) + " ファイルはみつかりませんでした。")
+        print("\tとりあえず そのまま にしときます。\n")
+
+    except Exception as error: # ファイルが開けない場合は次のループにskipする
+        print("%s \nError が発生したため、このファイルの処理はキャンセルされました。" % error)
+        import traceback
+        traceback.print_exc()
     
     return relative
 
@@ -440,15 +448,9 @@ def save_rst_files(target_path_list, save_path, target_link_name):
                 continue                                             # 以降の処理をスキップして次のfor文を実行する
 
                 
-            #print("FILENAME IS : " + str(_full_path)) #Debug
-            #print(_lines) #Debug
-                
             # rst ファイル化時の処理を行う
+            print(">> Convert : " + str(_full_path)) #Debug
             _lines = convert_smblink(_lines,_target_anchor)          # smblink ファイルのパス置き換えを行う
-
-            #print("\nFILENAME IS : " + str(_full_path)) #Debug
-            #print(_lines) #Debug
-
 
             if target_link_name is not None:
                 #末尾にリンクを追記する
@@ -535,48 +537,44 @@ if __name__ == '__main__':
 
 # # デバッグ用
 
-# In[ ]:
-
-
-# Debug用
-
-HEADLINE_DEPTH = 2 # index.rst でタイトル表示する階層数 
-TARGET_FILE_NAME = 'keyfile.txt' # 探索するファイル名 
-TARGET_PATH = r'./tests/Folder/Folder1' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
-SAVE_PATH   = r'./tests/tmp'
-TARGET_LINK_NAME = 'Contents Folder'
-HEADER_FILE = 'header.rst'
-
-# 検索先定義がない場合は終了する
-if TARGET_PATH is None or not os.path.exists(TARGET_PATH):
-    print('検索先が見つからなかった為、終了します。')
-    import sys
-    sys.exit(1) 
-
-# Windows のセパレータ'\\'への対応として、セパレータが '/' ではない場合は、 '/' を os.sep (OSのデフォルトセパレータ) に置き換える
-if os.sep != '/':
-    root_path = TARGET_PATH.replace('/', os.sep)
-    save_path = SAVE_PATH.replace('/',os.sep)
-    print('Windows用に / から ' + os.sep +  ' へセパレータの置き換え実施しました。')
-else:
-    root_path = TARGET_PATH
-    save_path = SAVE_PATH
-
-
-# ディレクトリを走査して、対象ファイルのリストを生成する。
-target_path_list = walk_path_to_target_path_list(root_path, TARGET_FILE_NAME)
-
-# index.rst ファイルを書き出す
-index_txt = create_index_file(root_path, target_path_list, HEADLINE_DEPTH)
-if HEADER_FILE is not None: index_txt = insert_header(index_txt, HEADER_FILE) #ヘッダファイルを挿入する
-file = open(os.path.join(save_path,"index.rst"), mode='w', encoding='utf-8')
-file.write("".join(index_txt))
-file.close()
-
-
-# ターゲットファイルを rst ファイル化
-save_rst_files(target_path_list, save_path, TARGET_LINK_NAME)
-
-# target_path_list を永続化
-#write_shelve(os.path.join(save_path,"pathList"),target_path_list)
-
+# # Debug用
+# 
+# HEADLINE_DEPTH = 2 # index.rst でタイトル表示する階層数 
+# TARGET_FILE_NAME = 'keyfile.txt' # 探索するファイル名 
+# TARGET_PATH = r'./tests/Folder/Folder1' # 探索するパスの根 windows UNC path ("//host/computer/dir") を想定
+# SAVE_PATH   = r'./tests/tmp'
+# TARGET_LINK_NAME = 'Contents Folder'
+# HEADER_FILE = 'header.rst'
+# 
+# # 検索先定義がない場合は終了する
+# if TARGET_PATH is None or not os.path.exists(TARGET_PATH):
+#     print('検索先が見つからなかった為、終了します。')
+#     import sys
+#     sys.exit(1) 
+# 
+# # Windows のセパレータ'\\'への対応として、セパレータが '/' ではない場合は、 '/' を os.sep (OSのデフォルトセパレータ) に置き換える
+# if os.sep != '/':
+#     root_path = TARGET_PATH.replace('/', os.sep)
+#     save_path = SAVE_PATH.replace('/',os.sep)
+#     print('Windows用に / から ' + os.sep +  ' へセパレータの置き換え実施しました。')
+# else:
+#     root_path = TARGET_PATH
+#     save_path = SAVE_PATH
+# 
+# 
+# # ディレクトリを走査して、対象ファイルのリストを生成する。
+# target_path_list = walk_path_to_target_path_list(root_path, TARGET_FILE_NAME)
+# 
+# # index.rst ファイルを書き出す
+# index_txt = create_index_file(root_path, target_path_list, HEADLINE_DEPTH)
+# if HEADER_FILE is not None: index_txt = insert_header(index_txt, HEADER_FILE) #ヘッダファイルを挿入する
+# file = open(os.path.join(save_path,"index.rst"), mode='w', encoding='utf-8')
+# file.write("".join(index_txt))
+# file.close()
+# 
+# 
+# # ターゲットファイルを rst ファイル化
+# save_rst_files(target_path_list, save_path, TARGET_LINK_NAME)
+# 
+# # target_path_list を永続化
+# #write_shelve(os.path.join(save_path,"pathList"),target_path_list)

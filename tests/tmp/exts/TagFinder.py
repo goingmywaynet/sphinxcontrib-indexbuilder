@@ -126,7 +126,7 @@ class TagFinderDirective(Directive):
             print("\n\t" + "tagfinder Directive ERROR\n" + "fileオプションとpathオプションは1つしか指定できません")
 
         for tag in tags:
-            path_list = findtags(str(file[0]).strip(), tag, str(path[0]).strip()) # tagファイル一覧
+            path_list = walk_path_to_target_path_list(str(path[0]).strip(), str(file[0]).strip()) # tagファイル一覧
             tag_list  = walk_path_list(path_list, tag)                            # 該当tag一覧 [{name:,desc:,path:},]
             
             #print("Directive > " + str(walk_path_list(path_list, tag)))
@@ -223,29 +223,6 @@ def convertToWSLStyle(text):
 # In[ ]:
 
 
-def smblink_role(typ, rawtext, text, lineno, inliner, options={}, content=[]):
-    """
-    sphinx role function
-    Role to create link addresses.
-    """
-    text = rawtext
-    if '`' in text:
-        text = text.split('`')[1]         # drop role name
-    if '<' in text and '>' in text:
-        name, path = text.split('<')      # split name, path by "<"
-        path = path.split('>')[0]
-        name = re.sub(r'[ ]+$','', name)  # remove spaces before "<"
-    else:
-        name = text
-        path = name
-    href = u"<a href=\"file:" + convertToWSLStyle(path) + u"\">" + name + u"</a>"
-    node = nodes.raw('', href, format='html')
-    return [node], []
-
-
-# In[ ]:
-
-
 def isContain(filelist, keywoard):
     """指定のファイル名がリストに存在するかの判定"""
     for filename in filelist:
@@ -272,8 +249,9 @@ def walk_path_to_target_path_list(search_root_path, target_file_name):
                            'path': _path,                                   # target file を含まない path
                            'full_path': os.path.join(_path, target_file_name),   # target file を含む path
                            'name': os.path.basename(_path),                 # 最終ディレクトリ名を生成対象ファイル名に
-                           'depth': _path.count(os.sep),                    # 階層の深さを
-                           'timestamp': os.stat(os.path.join(_path, target_file_name)).st_mtime # TimeStamp
+                           'depth': _path.count(os.sep)                    # 階層の深さを
+                           #'timestamp': os.stat(os.path.join(_path, target_file_name)).st_mtime # TimeStamp
+                           #windows network 共有環境に対する取得で失敗するため、除外する
                            }                    
             _target_path_list.append(_target_dict)
             
@@ -313,24 +291,6 @@ def detect_file_encode(file):
 # In[ ]:
 
 
-def findtags(file, tag, path):
-    """
-    - 以下のディレクティブを書くと、指定パス(tagSearchPath) に対してフォルダとファイル名の走査を行う::
-
-      .. tagfinder::
-        :file: tagFileName
-        :tag: tagname
-        :path: \\file\to
-    """
-    
-    path_list = walk_path_to_target_path_list(path, file)
-    
-    return path_list
-
-
-# In[ ]:
-
-
 def match_pattern(pattern, line):
     """渡されたlineからpatternを正規表現検索する。
     ただし、pattern は正規表現エスケープされ、以下の特殊な変換が行われる。
@@ -357,7 +317,7 @@ def converted_match_pattern(pattern):
     アスタリスク(*) は 正規表現 .* に
     クエスチョン(?) は 正規表現 . に変換される
     
-    返り値は re.match オブジェクト(bool値として扱える)"""
+    返り値は re.compile オブジェクト(bool値として扱える)"""
 
     tmppt = re.escape(pattern) #入力パターンをエスケープ
     tmppt = re.sub(r'\\\*',r'.*',tmppt) # アスタリスク(*) は正規表現の任意文字(.*)に変形
@@ -370,6 +330,8 @@ def converted_match_pattern(pattern):
 
 
 def walk_path_list(path_list, tag):
+    """指定したtagファイルの一覧の中から、tagが含まれる物を抽出する    
+    返り値は [{'name': , 'desc': , 'path':},] の dict配列"""
     
     res = [] # return 用
     
@@ -446,17 +408,8 @@ def setup(app):
     #             text=(visit_todo_node, depart_todo_node))
 
     app.add_directive('tagfinder', TagFinderDirective)
-    #app.add_directive('todolist', TodolistDirective)
     #app.connect('doctree-resolved', process_todo_nodes)
     #app.connect('env-purge-doc', purge_todos)
 
     return {'version': '0.1'}   # identifies the version of our extension
 
-
-# FILENAME = 'tag.txt'
-# TAG = 'this-is-tag-?00'
-# PATH = './test'
-
-# path_list = findtags(FILENAME, TAG, PATH)
-
-# path_list
