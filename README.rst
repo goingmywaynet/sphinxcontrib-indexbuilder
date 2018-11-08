@@ -40,12 +40,12 @@ SearchBuildTargets Script
 tagfinder
 --------------------------------------------------
 
-- 以下のディレクティブを書くと、指定パス(tagSearchPath) に対してフォルダとファイル名の走査を行う::
-
-  .. tagfinder::
-    :file: tagFileName
-    :tag: tagname
-    :path: \\file\to
+- 以下のディレクティブを書くと、指定パス(tagSearchPath) に対してフォルダとファイル名の走査を行う:: 
+  
+  |  .. tagfinder:: 
+  |    :file: tagFileName
+  |    :tag: tagname
+  |    :path: \\file\to
 
 
 - 指定ファイル名(tagFileName) にがあるフォルダパスを抽出 (tag_path_list)
@@ -96,73 +96,6 @@ Try this command to show usages
 
 .. code-block:: bash
 
-  $ python ./SearchBuildTargets.py --help
+  $ SearchBuildTargets.py --help
 
 
-build 
-
-To add a link address use something like::
-
-    :smblink:`\\Server\newfolder\to\path`
-    :smblink:`folder <\\Server\newfolder\to\path>`
-
-convert to ``file://Server/newfolder/to/path`` style
-
-
-require
-===================================
-
-import os.path                      # OS処理
-from chardet.universaldetector import UniversalDetector # 文字エンコード自動判定
-from collections import OrderedDict # 順序付き辞書(dict)
-from docopt import docopt           # コマンド処理時の引数の定義と解釈
-
-pandoc http://pandoc.org            # 様式変換
-
-
-pyInstaller めも
-===================================
-
-Macでのビルドについて
-------------------------------------------------------------
-
-ビルド環境:
-
-  pyenv 3.6.3/envs/sphinx
-
-pyenv 環境でビルドに失敗するときは、一度 pyenv 環境を PYTHON_CONFIGURE_OPTS="--enable-shared" 環境変数を設定した上で
-再度
-
-.. code-block:: bash
-
-  $ pyenv install -f pyenvパッケージ名 
-
-して再インストールすることで対応できる。
-
-https://github.com/pyenv/pyenv/wiki/Home/_compare/45570ea%5E...45570ea
-
-Windowsでのビルドについて
-------------------------------------------------------------
-
-ビルド環境：
-
-  WinPython-64bit-3.6.2.0Qt5
-
-以下のエラーが発生するので
-
-|  Fatal Python error: Py_Initialize: unable to load the system file codec
-|  LookupError: unknown encoding: utf-8
-
-https://qiita.com/aphextrax/items/c5df13042ec4626127ee を参考に WinPython Command Prompt にて
-
-.. code-block:: cmd
-
- > pip uninstall enum34
-
-してから、
-
-.. code-block:: cmd
-
-  > C:\Users\joey\Desktop\WinPython-64bit-3.6.2.0Qt5\WORK>pyinstaller SearchBuildTargets.py --onefile
-
-でビルドする。

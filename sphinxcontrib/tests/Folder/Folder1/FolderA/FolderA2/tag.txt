@@ -1,0 +1,8 @@
+FolderA2 - Multi tag and Multi line desc test
+:tftag: this-is-tag-100
+:desc: THIS IS Multi Line DESCRIPTION line 1
+THIS IS Multi Line DESCRIPTION line 2
+
+:tftag: this-is-tag-202
+:desc: THIS IS DESCRIPTION FOR 2nd
+  DESCRIPTION FUGAFUGA

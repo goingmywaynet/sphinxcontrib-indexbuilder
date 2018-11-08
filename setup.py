@@ -8,14 +8,18 @@ try:
 finally:
     f.close()
     
-requires = ['Sphinx>=1.0']
+requires = [
+  'Sphinx>=1.0',
+  'docopt>=0.6',
+  'chardet>=3.0'
+]
 
 setup(
     name='sphinxcontrib-indexbuilder',
-    version='0.1',
+    version='0.1.2',
     description='sphinx index building tools',
     long_description=long_desc,
-    url='',
+    url='https://github.com/goingmywaynet/sphinxcontrib-indexbuilder',
     author='Joey Chen',
     author_email='joey-tech@goingmyway.net',
     classifiers=[
@@ -44,7 +48,7 @@ setup(
     license='MIT',
     platforms='any',
     include_package_data=True,
-    #namespace_packages=['sphinxcontrib'],
+    namespace_packages=['sphinxcontrib'],
     entry_points = {
           # commandline tool setup
           'console_scripts': ['SearchBuildTargets=indexbuilder.SearchBuildTargets:main'],

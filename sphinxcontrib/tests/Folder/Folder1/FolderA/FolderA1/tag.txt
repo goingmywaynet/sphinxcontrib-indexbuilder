@@ -1,0 +1,6 @@
+FolderA1 - Multi tag test
+:tftag: this-is-tag-100
+:desc: THIS IS ./Folder/Folder1/FolderA/FolderA1/tag.txt 1st tag DESCRIPTION
+
+:tftag: this-is-tag-200
+:desc: THIS IS ./Folder/Folder1/FolderA/FolderA1/tag.txt 2nd tag DESCRIPTION
